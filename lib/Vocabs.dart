@@ -21,8 +21,11 @@ class VocabDatabase{
     final idType = 'INTEGER PRIMARY KEY AUTOINCREMENT';
     await db.execute('''
 CREATE TABLE ${Vocab.bookstableName} (
-  _ID $idType,
-  NAME TEXT
+  ${Vocab.idfield} $idType,
+  ${Vocab.namefield} TEXT,
+  ${Vocab.archivedfield} INTEGER,
+  ${Vocab.colorfield} INTEGER,
+  ${Vocab.coverfield} TEXT
 )
 ''');
     await db.execute('''

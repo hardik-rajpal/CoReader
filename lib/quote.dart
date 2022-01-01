@@ -12,12 +12,13 @@ class Vocab{
     idfield, bookidfield,namefield,deffield, knownfield
   ];
   static final List<String> BookColumns = [
-    idfield, namefield
+    idfield, namefield, archivedfield, colorfield,coverfield
   ];
   static final bookstableName = "BOOKS";
   static  final namefield = 'NAME';
   static final archivedfield = 'ARCHIVED';
   static final colorfield = 'COLOR';
+  static final coverfield = 'COVER';
   static final idfield = '_ID';
   static final  wordstableName = "WORDS";
   static final deffield = "DEF";
@@ -59,17 +60,22 @@ class Book{
   late String name;
   late bool archived;
   late int color;
-  Book(int i, String n, bool a){
-    id = i; name = n;archived = a;
+  late String cover;
+  Book(int i, String n, bool a, int c, String cov){
+    id = i; name = n;archived = a;color = c;cover = cov;
   }
   Map<String, Object?> toJson()=>{
     Vocab.idfield: id,
     Vocab.namefield: name,
     Vocab.archivedfield: archived?1:0,
+    Vocab.colorfield:color,
+    Vocab.coverfield:cover
   };
   static Book fromJson(json)=>Book(
     json[Vocab.idfield.toUpperCase()] as int,
     json[Vocab.namefield.toUpperCase()] as String,
-    (json[Vocab.archivedfield] as int)==1
+    (json[Vocab.archivedfield] as int)==1,
+    json[Vocab.colorfield] as int,
+    json[Vocab.coverfield] as String
   );
 }

@@ -1,4 +1,5 @@
 import 'dart:io';
+import 'dart:math';
 
 import 'package:flutter/cupertino.dart';
 import 'package:flutter/material.dart';
@@ -7,7 +8,7 @@ import 'package:CoReader/Vocabs.dart';
 import 'quote.dart';
 import 'package:http/http.dart';
 import 'dart:convert';
-import 'package:http/http.dart';
+import 'package:flutter_colorpicker/flutter_colorpicker.dart';
 void main(){
   HttpOverrides.global = MyHttpOverrides();
   return runApp(
@@ -37,37 +38,39 @@ class _HomePageState extends State<HomePage> with TickerProviderStateMixin{
     // Vocab([Word(-1,-1,'flummoxed',"", false)], Book(-1,'The Kite Runner')),
     // Vocab(['centurion'], '21 Lessons from the 21st Century')
   ];
-
+  List<Vocab> archivedVocabs = [];
   late TabController _tabController;
   TextEditingController _wordController = TextEditingController();
   TextEditingController _bookController = TextEditingController();
 
   void refreshWords() async {
+    int tabindex = _tabController.index;
     List<Book> allbooks = await VocabDatabase.instance.getAllBooks();
     List<Vocab> newvocabs = [];
     print(allbooks);
     setState(() {
       vocabs.clear();
     });
-    allbooks.forEach((book) {
-      print(book.name+book.id.toString());
-      vocabs.firstWhere((element){return element.book.id == book.id;}, orElse: (){
-        setState(() {
-          vocabs.add(Vocab([], book));
-          _tabController = TabController(length: vocabs.length, vsync: this);
+    for(int i=0;i<allbooks.length;i++){
+      if(!allbooks[i].archived){
+        vocabs.firstWhere((element){return element.book.id == allbooks[i].id;}, orElse: (){
+          setState(() {
+            vocabs.add(Vocab([], allbooks[i]));
+            print(tabindex);
+            _tabController = TabController(length: vocabs.length, vsync: this);
+          });
+          return vocabs.last;
         });
-        return vocabs.last;
-      });
-      print(book.name + "Added to ...");
-    });
+        print(allbooks[i].name + "Added to ...");
+      }
+    }
+    _tabController = TabController(length: vocabs.length, vsync: this);
+    if(_tabController.length>0){
+      _tabController.animateTo(min(tabindex, _tabController.length-1), duration: Duration());
+    }
     List<Word> allwords = await VocabDatabase.instance.getAllWords();
-    print(allwords);
-    // allwords.forEach((element) {
-    //   print(element.word+element.bookId.toString());
-    // });
     setState(() {
       vocabs.forEach((element) {
-        // print(element.words);
         element.words.clear();
       });
     });
@@ -78,19 +81,35 @@ class _HomePageState extends State<HomePage> with TickerProviderStateMixin{
         vocabs[i].words.add(e);
       });
     });
-
     print(vocabs);
-    // setState(() {
-    //   vocabs = newvocabs;
-    //
-    // });
   }
-
+  Future<Book> getCoverPage(Book book)async{
+    var client = Client();
+    String title = book.name.split(' ').join('+');
+    final String url = 'https://bookcoverapi.herokuapp.com/getBookCover?bookTitle=${title}';
+    var response = await client.get(Uri.parse(url));
+    Map<String, dynamic> data = jsonDecode(response.body);
+    if(data['status']=='success'){
+      book.cover = data['bookCoverUrl'];
+    }
+    else{
+      book.cover = 'assets/covers/default.jpg';
+    }
+    return book;
+  }
+  dynamic getImageWidget(Book book){
+    if(book.cover.startsWith('http')){
+      return NetworkImage(book.cover);
+    }
+    else{
+      return AssetImage(book.cover);
+    }
+  }
   @override
   void initState(){
     super.initState();
-    refreshWords();
     _tabController = TabController(length: vocabs.length, vsync: this);
+    refreshWords();
   }
   @override
   void dispose() {
@@ -103,7 +122,19 @@ class _HomePageState extends State<HomePage> with TickerProviderStateMixin{
       appBar: AppBar(
         title: Text('CoReader'),
         centerTitle: false,
+        actions: [
+          IconButton(onPressed: (){
+            showMenu(
+                context: context,
+                position: RelativeRect.fromLTRB(1, 0, 0, 1),
+                items: [
+                  PopupMenuItem(child:Text('Archived Books'))
+                ]);
+          }, icon: Icon(Icons.more_horiz),)
+        ],
         bottom: TabBar(
+          // isScrollable: true,
+
           controller: _tabController,
           tabs: vocabs.map((s)=>GestureDetector(
             onLongPress: (){
@@ -111,8 +142,23 @@ class _HomePageState extends State<HomePage> with TickerProviderStateMixin{
                 _bookController.text = s.book.name;
                 return AlertDialog(
                   title: Text("Edit Book"),
-                  content: TextField(
-                    controller: _bookController,
+                  content: SingleChildScrollView(
+                    scrollDirection: Axis.vertical,
+                    child: Column(
+                      children: [
+                        TextField(
+                          controller: _bookController,
+                        ),
+                        ColorPicker(
+                          pickerColor: Color(s.book.color),
+                          onColorChanged: (Color color){
+                            setState(() {
+                              s.book.color = color.value;
+                            });
+                          },
+                        )
+                      ],
+                    ),
                   ),
                   actions: [
                     ElevatedButton.icon(
@@ -163,9 +209,15 @@ class _HomePageState extends State<HomePage> with TickerProviderStateMixin{
               });
               print("long press");
             },
-            child: Tab(
-              text: s.book.name,
-            ),
+            child:ElevatedButton(
+              child:Text(s.book.name),
+              onPressed: (){
+                _tabController.animateTo(vocabs.indexOf(s));
+              },
+              style: ButtonStyle(
+                backgroundColor: MaterialStateProperty.all(Color(s.book.color))
+              ),
+            )
           )).toList(),
         ),
 
@@ -191,7 +243,8 @@ class _HomePageState extends State<HomePage> with TickerProviderStateMixin{
                   actions: [
                     ElevatedButton(
                         onPressed: () async {
-                          Book book = new Book(-1, _bookController.text, false);
+                          Book book = new Book(-1, _bookController.text, false, Colors.blueAccent.value, "");
+                          book = await getCoverPage(book);
                           book = await VocabDatabase.instance.create(book);
                           refreshWords();
                         _bookController.clear();
@@ -213,37 +266,46 @@ class _HomePageState extends State<HomePage> with TickerProviderStateMixin{
             child:TabBarView(
                 controller: _tabController,
                 children: vocabs.map((e){
-                  return ListView.builder(
-                    itemCount: e.words.length,
-                    itemBuilder: (context, index){
-                      var f = e.words[index];
-                      var color = f.known?Colors.green[500]:Colors.blue;
-                      return ElevatedButton.icon(
-                        icon:Icon(Icons.info),
-                        style: ButtonStyle(
-                          backgroundColor: MaterialStateProperty.all(color),
-                        ),
-                        onPressed: ()async{
-                          if(f.def==""){
-                            var client = Client();
-                            var response = await client.get(Uri.parse('https://api.dictionaryapi.dev/api/v2/entries/en/'+f.word));
-                            print(response.body);
-                            DefinitionBox definitionBox = DefinitionBox(response.body, context, f, this.refreshWords);
-                          }
-                          else{
-                            DefinitionBox definitionBox = DefinitionBox("", context, f, this.refreshWords);
-                          }
-
-
-                        },
-                        label: Text(
-                          f.word,
-                          style: TextStyle(
-                              fontSize: 20.0,
+                  return Container(
+                    decoration: BoxDecoration(
+                      image: DecorationImage(
+                        image:  getImageWidget(e.book),
+                        fit: BoxFit.cover,
+                        opacity: 0.3
+                      ),
+                    ),
+                    child: ListView.builder(
+                      itemCount: e.words.length,
+                      itemBuilder: (context, index){
+                        var f = e.words[index];
+                        var color = f.known?Colors.green[500]:Colors.blue;
+                        return ElevatedButton.icon(
+                          icon:Icon(Icons.info),
+                          style: ButtonStyle(
+                            backgroundColor: MaterialStateProperty.all(color),
                           ),
-                        ),
-                      );
-                    },
+                          onPressed: ()async{
+                            if(f.def==""){
+                              var client = Client();
+                              var response = await client.get(Uri.parse('https://api.dictionaryapi.dev/api/v2/entries/en/'+f.word));
+                              print(response.body);
+                              DefinitionBox definitionBox = DefinitionBox(response.body, context, f, this.refreshWords);
+                            }
+                            else{
+                              DefinitionBox definitionBox = DefinitionBox("", context, f, this.refreshWords);
+                            }
+
+
+                          },
+                          label: Text(
+                            f.word,
+                            style: TextStyle(
+                                fontSize: 20.0,
+                            ),
+                          ),
+                        );
+                      },
+                    ),
                   );
                 }
               ).toList(),
@@ -314,8 +376,8 @@ class DefinitionBox{
         }).toList().join("\n");
       }
       catch(e){
-        word = data['title'];
-        definition = data['message'];
+        word = wordobj.word;
+        definition = "We couldn't get that word. Sorry.";
       }
     }
 
