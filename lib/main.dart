@@ -156,7 +156,6 @@ class _HomePageState extends State<HomePage> with TickerProviderStateMixin{
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-g
       appBar: AppBar(
         title: Text('CoReader'),
         centerTitle: false,
