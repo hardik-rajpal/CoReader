@@ -25,7 +25,8 @@ CREATE TABLE ${Vocab.bookstableName} (
   ${Vocab.namefield} TEXT,
   ${Vocab.archivedfield} INTEGER,
   ${Vocab.colorfield} INTEGER,
-  ${Vocab.coverfield} TEXT
+  ${Vocab.coverfield} TEXT,
+  ${Vocab.bookmarkfield} INTEGER
 )
 ''');
     await db.execute('''
@@ -35,6 +36,14 @@ CREATE TABLE ${Vocab.wordstableName} (
   ${Vocab.namefield} TEXT,
   ${Vocab.deffield} TEXT,
   ${Vocab.knownfield} BOOLEAN
+)
+''');
+    await db.execute('''
+CREATE TABLE ${Vocab.pagesTableName} (
+  ${Vocab.idfield} $idType,
+  ${Vocab.namefield} TEXT,
+  ${Vocab.bookidfield} INTEGER,
+  ${Vocab.contentfield} TEXT
 )
 ''');
   }
@@ -54,6 +63,15 @@ CREATE TABLE ${Vocab.wordstableName} (
     word.id = id;
     return word;
   }
+  Future<NotePage> createPage(NotePage page) async{
+    final db = await instance.database;
+    Map<String,Object?> json = page.toJson();
+    json.remove(Vocab.idfield);
+    final id = await db.insert(Vocab.wordstableName,json);
+    page.id = id;
+    return page;
+  }
+
   Future<List<Book>> getAllBooks() async{
     final db = await instance.database;
     final maps= await db.query(
@@ -79,10 +97,32 @@ CREATE TABLE ${Vocab.wordstableName} (
     }).toList();
     return words;
   }
+  Future<List<NotePage>> getAllPages() async{
+    final db = await instance.database;
+    final maps= await db.query(
+      Vocab.pagesTableName,
+      columns:Vocab.PageColumns,
+    );
+    List<NotePage>  pages = maps.map((s){
+      NotePage page = NotePage.fromJson(s);
+      return page;
+    }).toList();
+    return pages;
+  }
   Future<bool> deleteWord(int id) async{
     final db = await instance.database;
     final int b = await db.delete(
       Vocab.wordstableName,
+      where:'${Vocab.idfield} = ?',
+      whereArgs: [id],
+    );
+    print(b);
+    return b>0;
+  }
+  Future<bool> deletePage(int id) async{
+    final db = await instance.database;
+    final int b = await db.delete(
+      Vocab.pagesTableName,
       where:'${Vocab.idfield} = ?',
       whereArgs: [id],
     );
@@ -111,6 +151,15 @@ CREATE TABLE ${Vocab.wordstableName} (
       word.toJson(),
       where: '${Vocab.idfield} = ?',
       whereArgs: [word.id]
+    );
+  }
+  Future<int> updatePage(NotePage page)async{
+    final db = await instance.database;
+    return db.update(
+        Vocab.pagesTableName,
+        page.toJson(),
+        where: '${Vocab.idfield} = ?',
+        whereArgs: [page.id]
     );
   }
   Future<int> updateBook(Book book)async{

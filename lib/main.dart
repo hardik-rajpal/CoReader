@@ -1,5 +1,6 @@
 import 'dart:io';
 import 'dart:math';
+import 'package:cached_network_image/cached_network_image.dart';
 import 'package:flutter/cupertino.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/widgets.dart';
@@ -33,7 +34,7 @@ class WordList extends StatelessWidget{
     return Container(
       decoration: BoxDecoration(
         image: DecorationImage(
-            image:  _HomePageState.getImageWidget(e.book),
+            image:  _HomePageState.getImageWidget(this.e.book),
             fit: BoxFit.fill,
             opacity: 0.3
         ),
@@ -84,8 +85,13 @@ class _HomePageState extends State<HomePage> with TickerProviderStateMixin{
     // Vocab([Word(-1,-1,'flummoxed',"", false)], Book(-1,'The Kite Runner')),
     // Vocab(['centurion'], '21 Lessons from the 21st Century')
   ];
+  double ValueThres = 95;
+  bool firstRefreshDone = false;
+  String coverPageDialogUrl = 'assets/covers/default.jpg';
   List<Vocab> archivedVocabs = [];
   late TabController _tabController;
+  int currentIndex = 0;
+  TextEditingController _bookmarkController = TextEditingController();
   TextEditingController _wordController = TextEditingController();
   TextEditingController _bookController = TextEditingController();
   void refreshWords() async {
@@ -113,30 +119,48 @@ class _HomePageState extends State<HomePage> with TickerProviderStateMixin{
       });
     }
     _tabController = TabController(length: vocabs.length, vsync: this);
+    _tabController.addListener(_handleTabSelection);
     if(_tabController.length>0){
       _tabController.animateTo(min(tabindex, _tabController.length-1), duration: Duration());
     }
     setState(() {
       vocabs = vocabs.reversed.toList();
+      firstRefreshDone = true;
+    });
+  }
+  double getVofHSV(Color color){
+    int r, g, b;
+    r = color.red; g = color.green; b = color.blue;
+    return 100*(max(r, max(g, b)))/255.0;
+  }
+  _handleTabSelection(){
+    setState(() {
+      currentIndex = _tabController.index;
     });
   }
   Future<Book> getCoverPage(Book book)async{
     var client = Client();
     String title = book.name.split(' ').join('+');
-    final String url = 'https://bookcoverapi.herokuapp.com/getBookCover?bookTitle=${title}';
-    var response = await client.get(Uri.parse(url));
-    Map<String, dynamic> data = jsonDecode(response.body);
-    if(data['status']=='success'){
-      book.cover = data['bookCoverUrl'];
+    final String url = 'https://book-cover-api.herokuapp.com/getBookCover?bookTitle=${title}';
+    try{
+      var response = await client.get(Uri.parse(url));
+      Map<String, dynamic> data = jsonDecode(response.body);
+      if (data['status'] == 'success') {
+        book.cover = data['bookCoverUrl'];
+      } else {
+        book.cover = 'assets/covers/default.jpg';
+      }
     }
-    else{
+    catch(e){
       book.cover = 'assets/covers/default.jpg';
     }
     return book;
   }
   static dynamic getImageWidget(Book book){
     if(book.cover.startsWith('http')){
-      return NetworkImage(book.cover);
+      return CachedNetworkImageProvider(
+        book.cover,
+      );
     }
     else{
       return AssetImage(book.cover);
@@ -146,7 +170,9 @@ class _HomePageState extends State<HomePage> with TickerProviderStateMixin{
   void initState(){
     super.initState();
     _tabController = TabController(length: vocabs.length, vsync: this);
+    _tabController.addListener(_handleTabSelection);
     refreshWords();
+
   }
   @override
   void dispose() {
@@ -156,45 +182,59 @@ class _HomePageState extends State<HomePage> with TickerProviderStateMixin{
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      bottomSheet: Row(
-        children: (_tabController.length>0)?[
-          Expanded(
-            flex: 10,
-            child: Padding(
-              padding: EdgeInsets.fromLTRB(10, 0, 0, 0),
-              child: TextField(
-                controller: _wordController,
-                onSubmitted: (wordstr)async{
-                  var word = new Word(-1, vocabs[_tabController.index].book.id, _wordController.text, "", false);
-                  word = await VocabDatabase.instance.createWord(word);
-                  refreshWords();
-                  setState((){
-                    _wordController.clear();
-                  });
-                },
-                decoration: InputDecoration(
-                  hintText: 'Enter Word...',
-                ),
+      bottomSheet: DecoratedBox(
+        decoration: BoxDecoration(
+          color: (_tabController.length>0)?Color(vocabs[currentIndex].book.color):Colors.grey[100],
+        ),
+        child: Padding(
+          padding: const EdgeInsets.fromLTRB(8.0, 0, 8.0, 0),
+          child: Row(
+            children: (_tabController.length>0)?[
+              Expanded(
+                flex: 10,
+                child: TextField(
+                    controller: _wordController,
+                    onSubmitted: (wordstr)async{
+                      var word = new Word(-1, vocabs[_tabController.index].book.id, _wordController.text, "", false);
+                      word = await VocabDatabase.instance.createWord(word);
+                      refreshWords();
+                      setState((){
+                        _wordController.clear();
+                      });
+                    },
+                    decoration: InputDecoration(
+                      isDense: true,
+                      contentPadding: EdgeInsets.all(10),
+                      hintText: 'Enter Word...',
+                      border: OutlineInputBorder(
+                        borderSide: BorderSide(color:Colors.red, width: 5.0),
+                        borderRadius: BorderRadius.all(Radius.circular(20.0))
+                      ),
+                      filled: true,
+                      fillColor: Colors.grey[200]
+                    ),
+                  ),
               ),
-            ),
-          ),
-          Expanded(
-            flex: 1,
-            child: IconButton(
-              icon: Icon(Icons.send),
-              onPressed: ()async{
-                if(_wordController.text.length==0){return;}
-                var word = new Word(-1, vocabs[_tabController.index].book.id, _wordController.text, "", false);
-                word = await VocabDatabase.instance.createWord(word);
-                refreshWords();
-                setState((){
-                  _wordController.clear();
-                });
+              Expanded(
+                flex: 1,
+                child: IconButton(
+                  color:Colors.black,
+                  icon: Icon(Icons.send, color: (getVofHSV(Color(vocabs[currentIndex].book.color))>ValueThres)?Colors.black:Colors.white,),
+                  onPressed: ()async{
+                    if(_wordController.text.length==0){return;}
+                    var word = new Word(-1, vocabs[_tabController.index].book.id, _wordController.text, "", false);
+                    word = await VocabDatabase.instance.createWord(word);
+                    refreshWords();
+                    setState((){
+                      _wordController.clear();
+                    });
 
-              },
-            ),
-          )
-        ] : [],
+                  },
+                ),
+              )
+            ] : [],
+          ),
+        ),
       ),
 
       appBar: AppBar(
@@ -208,6 +248,7 @@ class _HomePageState extends State<HomePage> with TickerProviderStateMixin{
                 return AlertDialog(
                   title: Text("New Book"),
                   content: TextField(
+                    autofocus: true,
                     controller: _bookController,
                     decoration: InputDecoration(
                       hintText: 'The Great Gatsby',
@@ -216,25 +257,15 @@ class _HomePageState extends State<HomePage> with TickerProviderStateMixin{
                   actions: [
                     ElevatedButton(
                       onPressed: () async {
-                        Book book = new Book(-1, _bookController.text, false, Colors.blueAccent.value, "");
+                        Book book = new Book(-1, _bookController.text, false, Colors.deepOrange.value, "assets/covers/default.jpg", 1);
                         _bookController.clear();
                         Navigator.of(context).pop();
-                        showDialog(context: context, builder:(context){
-                          return AlertDialog(
-                            title: Text('Wait for the cover page...'),
-                            actions: [
-                              ElevatedButton(onPressed: (){
-                                Navigator.of(context).pop();
-                              }, child: Text('OK'))
-                            ],
-
-                          );
-                        });
+                        ScaffoldMessenger.of(context).showSnackBar(SnackBar(
+                          content: Text("Getting cover page. Please wait..."),
+                        ));
                         book = await getCoverPage(book);
                         book = await VocabDatabase.instance.create(book);
                         refreshWords();
-                        Navigator.of(context).pop();
-
                       },
                       child: Text('Save'),
                     )
@@ -257,7 +288,9 @@ class _HomePageState extends State<HomePage> with TickerProviderStateMixin{
           isScrollable: true,
 
           controller: _tabController,
-          tabs: vocabs.map((s)=>GestureDetector(
+          tabs: vocabs.map((s){
+
+            return GestureDetector(
             onLongPress: (){
               showDialog(context: context, builder: (BuildContext context){
                 _bookController.text = s.book.name;
@@ -272,16 +305,6 @@ class _HomePageState extends State<HomePage> with TickerProviderStateMixin{
                         TextField(
                           controller: _bookController,
                         ),
-
-                        // MaterialColorPicker(
-                        //   allowShades: false,
-                        //   selectedColor: Color(s.book.color),
-                        //   onColorChange: (Color color){
-                        //     setState(() {
-                        //       s.book.color = color.value;
-                        //     });
-                        //   },
-                        // )
                         ColorPicker(
                           paletteType: PaletteType.hueWheel,
                           enableAlpha: false,
@@ -346,7 +369,12 @@ class _HomePageState extends State<HomePage> with TickerProviderStateMixin{
               print("long press");
             },
             child:ElevatedButton(
-              child:Text(s.book.name),
+              child:Text(
+                s.book.name,
+                style: TextStyle(
+                  color: (getVofHSV(Color(s.book.color))>ValueThres)?Colors.black:Colors.white
+                ),
+              ),
               onPressed: (){
                 _tabController.animateTo(vocabs.indexOf(s));
               },
@@ -354,12 +382,56 @@ class _HomePageState extends State<HomePage> with TickerProviderStateMixin{
                 backgroundColor: MaterialStateProperty.all(Color(s.book.color))
               ),
             )
-          )).toList(),
+          );
+          }).toList(),
         ),
 
       ),
+      backgroundColor: Colors.white,
+
       body: Column(
         children: [
+          Container(
+            child:DecoratedBox(
+              decoration: BoxDecoration(
+                color: Colors.white
+              ),
+              child: Padding(
+                padding: const EdgeInsets.symmetric(horizontal: 8.0),
+                child: (_tabController.length==0)?SizedBox():Row(
+                  children: [
+                    Icon(Icons.bookmark),
+                    TextButton(
+                      child: Text('Now @ Page ${(_tabController.length>0)?vocabs[currentIndex].book.bookmark:0}',),
+                      onPressed: () {
+                        _bookmarkController.text = vocabs[currentIndex].book.bookmark.toString();
+                        showDialog(context: context, builder: (context){
+                          return AlertDialog(
+                            title: Text('Set Bookmark'),
+                            content: TextField(
+                              autofocus: true,
+                              controller: _bookmarkController,
+                              keyboardType: TextInputType.number,
+                            ),
+                            actions: [
+                              ElevatedButton( child: Text('Save'),onPressed: (){
+                                int page = int.parse(_bookmarkController.text);
+                                setState(() {
+                                  vocabs[currentIndex].book.bookmark = page;
+                                });
+                                VocabDatabase.instance.updateBook(vocabs[currentIndex].book);
+                                Navigator.of(context).pop();
+                              },)
+                            ],
+                          );
+                        });
+                      },
+                    ),
+                  ],
+                ),
+              ),
+            ),
+          ),
           Expanded(
             flex: 10,
             child:(_tabController.length>0)?TabBarView(
@@ -369,8 +441,9 @@ class _HomePageState extends State<HomePage> with TickerProviderStateMixin{
                 }
               ).toList(),
             ):Center(
+
               child: Text(
-                'No active books so far. Tap the + icon at the top to add a book.',
+                (firstRefreshDone)?'No active books so far. Tap the + icon at the top to add a book.':'Loading active books...',
               style: TextStyle(
                 color: Colors.grey[700],
                 fontSize: 20.0,
@@ -379,14 +452,6 @@ class _HomePageState extends State<HomePage> with TickerProviderStateMixin{
               textAlign: TextAlign.center,),
             )
           ),
-          // Expanded(
-          //   flex: 1,
-          //   child: Row(
-          //       children: [
-          //
-          //         ],
-          //       ),
-          // )
         ],
       ),
     );

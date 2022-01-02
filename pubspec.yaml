@@ -37,6 +37,7 @@ dependencies:
   http: ^0.13.4
   sqflite: ^2.0.0+3
   flutter_colorpicker: ^1.0.3
+  cached_network_image: ^3.2.0
 dev_dependencies:
   flutter_test:
     sdk: flutter

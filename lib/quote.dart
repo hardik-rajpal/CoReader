@@ -1,29 +1,30 @@
-class Lie{
-  late String text;
-  late String author;
-  late String episode;
-  Lie(String t, String a, String e){
-    text = t;author = a;episode = e;
-  }
-}
-
 class Vocab{
   static final List<String> WordColumns = [
     idfield, bookidfield,namefield,deffield, knownfield
   ];
   static final List<String> BookColumns = [
-    idfield, namefield, archivedfield, colorfield,coverfield
+    idfield, namefield, archivedfield, colorfield,coverfield,bookmarkfield
+  ];
+  static final List<String> PageColumns = [
+    idfield, namefield, contentfield, bookidfield
   ];
   static final bookstableName = "BOOKS";
   static  final namefield = 'NAME';
   static final archivedfield = 'ARCHIVED';
   static final colorfield = 'COLOR';
   static final coverfield = 'COVER';
+  static final bookmarkfield = 'BOOKMARK';
   static final idfield = '_ID';
+
   static final  wordstableName = "WORDS";
   static final deffield = "DEF";
   static final knownfield = "KNOWN";
   static final bookidfield = "BOOKID";
+
+  static final pagesTableName = "PAGES";
+  //bookid
+  static final contentfield = "CONTENT";
+
   late Book book;
   late List<Word> words;
   Vocab(List<Word> _words, Book _book){
@@ -55,27 +56,51 @@ class Word{
     (json[Vocab.knownfield] as int)==1,
   );
 }
+class NotePage{
+  late int id;
+  late String title;
+  late String content;
+  late int bookId;
+  NotePage(int i, int bi,String c, String t){
+    id = i;bookId = bi;content = c;title = t;
+  }
+  Map<String, Object> toJson()=>{
+    Vocab.idfield: id,
+    Vocab.bookidfield: bookId,
+    Vocab.contentfield: content,
+    Vocab.namefield:title
+  };
+  static NotePage fromJson(json)=> NotePage(
+    json[Vocab.idfield] as int,
+    json[Vocab.bookidfield] as int,
+    json[Vocab.contentfield] as String,
+    json[Vocab.namefield] as String
+  );
+}
 class Book{
   late int id;
   late String name;
   late bool archived;
   late int color;
   late String cover;
-  Book(int i, String n, bool a, int c, String cov){
-    id = i; name = n;archived = a;color = c;cover = cov;
+  late int bookmark;
+  Book(int i, String n, bool a, int c, String cov, int bm){
+    id = i; name = n;archived = a;color = c;cover = cov; bookmark = bm;
   }
   Map<String, Object?> toJson()=>{
     Vocab.idfield: id,
     Vocab.namefield: name,
     Vocab.archivedfield: archived?1:0,
     Vocab.colorfield:color,
-    Vocab.coverfield:cover
+    Vocab.coverfield:cover,
+    Vocab.bookmarkfield:bookmark
   };
   static Book fromJson(json)=>Book(
     json[Vocab.idfield.toUpperCase()] as int,
     json[Vocab.namefield.toUpperCase()] as String,
     (json[Vocab.archivedfield] as int)==1,
     json[Vocab.colorfield] as int,
-    json[Vocab.coverfield] as String
+    json[Vocab.coverfield] as String,
+    json[Vocab.bookmarkfield] as int
   );
 }
