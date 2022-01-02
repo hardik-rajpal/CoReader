@@ -3,7 +3,7 @@ class Vocab{
     idfield, bookidfield,namefield,deffield, knownfield
   ];
   static final List<String> BookColumns = [
-    idfield, namefield, archivedfield, colorfield,coverfield,bookmarkfield
+    idfield, namefield, archivedfield, colorfield,coverfield,bookmarkfield,sizefield
   ];
   static final List<String> PageColumns = [
     idfield, namefield, contentfield, bookidfield
@@ -14,6 +14,7 @@ class Vocab{
   static final colorfield = 'COLOR';
   static final coverfield = 'COVER';
   static final bookmarkfield = 'BOOKMARK';
+  static final sizefield = 'SIZE';
   static final idfield = '_ID';
 
   static final  wordstableName = "WORDS";
@@ -84,8 +85,9 @@ class Book{
   late int color;
   late String cover;
   late int bookmark;
-  Book(int i, String n, bool a, int c, String cov, int bm){
-    id = i; name = n;archived = a;color = c;cover = cov; bookmark = bm;
+  late int size;
+  Book(int i, String n, bool a, int c, String cov, int bm, int sz){
+    id = i; name = n;archived = a;color = c;cover = cov; bookmark = bm;size = sz;
   }
   Map<String, Object?> toJson()=>{
     Vocab.idfield: id,
@@ -93,7 +95,8 @@ class Book{
     Vocab.archivedfield: archived?1:0,
     Vocab.colorfield:color,
     Vocab.coverfield:cover,
-    Vocab.bookmarkfield:bookmark
+    Vocab.bookmarkfield:bookmark,
+    Vocab.sizefield:size
   };
   static Book fromJson(json)=>Book(
     json[Vocab.idfield.toUpperCase()] as int,
@@ -101,6 +104,7 @@ class Book{
     (json[Vocab.archivedfield] as int)==1,
     json[Vocab.colorfield] as int,
     json[Vocab.coverfield] as String,
-    json[Vocab.bookmarkfield] as int
+    json[Vocab.bookmarkfield] as int,
+    json[Vocab.sizefield] as int
   );
 }

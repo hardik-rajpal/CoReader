@@ -245,20 +245,39 @@ class _HomePageState extends State<HomePage> with TickerProviderStateMixin{
             showDialog(
               context: context,
               builder: (BuildContext context){
+                _bookmarkController.clear();_bookController.clear();
                 return AlertDialog(
                   title: Text("New Book"),
-                  content: TextField(
-                    autofocus: true,
-                    controller: _bookController,
-                    decoration: InputDecoration(
-                      hintText: 'The Great Gatsby',
-                    ),
+                  content: Column(
+                    children: [
+                      TextField(
+                        autofocus: true,
+                        controller: _bookController,
+                        decoration: InputDecoration(
+                          hintText: 'Book Title',
+                        ),
+                      ),
+                      TextField(
+                        controller: _bookmarkController,
+                        decoration: InputDecoration(
+                          hintText: 'Number of Pages',
+                        ),
+                        keyboardType: TextInputType.number,
+                      ),
+                    ],
                   ),
                   actions: [
                     ElevatedButton(
                       onPressed: () async {
-                        Book book = new Book(-1, _bookController.text, false, Colors.deepOrange.value, "assets/covers/default.jpg", 1);
-                        _bookController.clear();
+                        int numpages=1;
+                        try{
+                          numpages = int.parse(_bookmarkController.text);
+                        }
+                        catch(e){
+                          return;
+                        }
+                        Book book = new Book(-1, _bookController.text, false, Colors.deepOrange.value, "assets/covers/default.jpg", 1, numpages);
+                        _bookController.clear();_bookmarkController.clear();
                         Navigator.of(context).pop();
                         ScaffoldMessenger.of(context).showSnackBar(SnackBar(
                           content: Text("Getting cover page. Please wait..."),
@@ -294,6 +313,7 @@ class _HomePageState extends State<HomePage> with TickerProviderStateMixin{
             onLongPress: (){
               showDialog(context: context, builder: (BuildContext context){
                 _bookController.text = s.book.name;
+                _bookmarkController.text = s.book.size.toString();
                 return AlertDialog(
                   title: Text("Edit Book"),
                   content: SingleChildScrollView(
@@ -303,7 +323,14 @@ class _HomePageState extends State<HomePage> with TickerProviderStateMixin{
                       children: [
                         Text('Name: ',),
                         TextField(
+
                           controller: _bookController,
+                        ),
+                        SizedBox.fromSize(size: Size.fromHeight(10),),
+                        Text('Number of Pages:'),
+                        TextField(
+                          controller: _bookmarkController,
+                          keyboardType: TextInputType.number,
                         ),
                         ColorPicker(
                           paletteType: PaletteType.hueWheel,
@@ -353,14 +380,22 @@ class _HomePageState extends State<HomePage> with TickerProviderStateMixin{
                         backgroundColor: MaterialStateProperty.all(Colors.green),
                       ),
                       onPressed: ()async{
+                        int size = 1;
+                        try{
+                          size = int.parse(_bookmarkController.text);
+                        }
+                        catch(e){
+                          return;
+                        }
                         setState(() {
                           s.book.name = _bookController.text;
+                          s.book.size =  size;
                         });
-                        _bookController.clear();
+                        _bookController.clear();_bookmarkController.clear();
                         await VocabDatabase.instance.updateBook(s.book);
                         Navigator.of(context).pop();
                       },
-                      icon: Icon(Icons.save),
+                      icon: Icon(Icons.check),
                       label: Text("Save"),
                     )
                   ],
@@ -398,11 +433,19 @@ class _HomePageState extends State<HomePage> with TickerProviderStateMixin{
               ),
               child: Padding(
                 padding: const EdgeInsets.symmetric(horizontal: 8.0),
-                child: (_tabController.length==0)?SizedBox():Row(
+                child: (_tabController.length==0)?Text(''):Row(
                   children: [
-                    Icon(Icons.bookmark),
                     TextButton(
-                      child: Text('Now @ Page ${(_tabController.length>0)?vocabs[currentIndex].book.bookmark:0}',),
+
+                      child: Row(
+                        children: [
+                          Icon(
+                            Icons.bookmark,
+                            color: Colors.blueAccent,
+                          ),
+                          Text('Now @ Page ${(_tabController.length>0)?vocabs[currentIndex].book.bookmark:0}',),
+                        ],
+                      ),
                       onPressed: () {
                         _bookmarkController.text = vocabs[currentIndex].book.bookmark.toString();
                         showDialog(context: context, builder: (context){
@@ -415,7 +458,13 @@ class _HomePageState extends State<HomePage> with TickerProviderStateMixin{
                             ),
                             actions: [
                               ElevatedButton( child: Text('Save'),onPressed: (){
-                                int page = int.parse(_bookmarkController.text);
+                                int page = 1;
+                                try{
+                                  page = int.parse(_bookmarkController.text);
+                                }
+                                catch(e){
+                                  return;
+                                }
                                 setState(() {
                                   vocabs[currentIndex].book.bookmark = page;
                                 });
@@ -426,6 +475,13 @@ class _HomePageState extends State<HomePage> with TickerProviderStateMixin{
                           );
                         });
                       },
+                    ),
+                    Expanded(
+                      child: LinearProgressIndicator(
+                        backgroundColor: Colors.green[200],
+                        color: Colors.green[800],
+                        value: vocabs[currentIndex].book.bookmark/vocabs[currentIndex].book.size,
+                      ),
                     ),
                   ],
                 ),
@@ -455,6 +511,25 @@ class _HomePageState extends State<HomePage> with TickerProviderStateMixin{
         ],
       ),
     );
+  }
+
+  getBookmarkColor(Book book) {
+    Color color;
+    int bm = book.bookmark; int totpages = book.size;
+    if(bm/totpages>90){
+      color = Colors.green;
+    }
+    else if(bm/totpages>50){
+      color = Colors.blueAccent;
+    }
+    else if(bm/totpages>25){
+      color = Colors.blueGrey;
+    }
+    else{
+      color = Colors.black;
+    }
+
+    return color;
   }
 }
 

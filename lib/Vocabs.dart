@@ -26,7 +26,8 @@ CREATE TABLE ${Vocab.bookstableName} (
   ${Vocab.archivedfield} INTEGER,
   ${Vocab.colorfield} INTEGER,
   ${Vocab.coverfield} TEXT,
-  ${Vocab.bookmarkfield} INTEGER
+  ${Vocab.bookmarkfield} INTEGER,
+  ${Vocab.sizefield} INTEGER
 )
 ''');
     await db.execute('''
