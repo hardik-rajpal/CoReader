@@ -156,6 +156,47 @@ class _HomePageState extends State<HomePage> with TickerProviderStateMixin{
   @override
   Widget build(BuildContext context) {
     return Scaffold(
+      bottomSheet: Row(
+        children: (_tabController.length>0)?[
+          Expanded(
+            flex: 10,
+            child: Padding(
+              padding: EdgeInsets.fromLTRB(10, 0, 0, 0),
+              child: TextField(
+                controller: _wordController,
+                onSubmitted: (wordstr)async{
+                  var word = new Word(-1, vocabs[_tabController.index].book.id, _wordController.text, "", false);
+                  word = await VocabDatabase.instance.createWord(word);
+                  refreshWords();
+                  setState((){
+                    _wordController.clear();
+                  });
+                },
+                decoration: InputDecoration(
+                  hintText: 'Enter Word...',
+                ),
+              ),
+            ),
+          ),
+          Expanded(
+            flex: 1,
+            child: IconButton(
+              icon: Icon(Icons.send),
+              onPressed: ()async{
+                if(_wordController.text.length==0){return;}
+                var word = new Word(-1, vocabs[_tabController.index].book.id, _wordController.text, "", false);
+                word = await VocabDatabase.instance.createWord(word);
+                refreshWords();
+                setState((){
+                  _wordController.clear();
+                });
+
+              },
+            ),
+          )
+        ] : [],
+      ),
+
       appBar: AppBar(
         title: Text('CoReader'),
         centerTitle: false,
@@ -225,11 +266,25 @@ class _HomePageState extends State<HomePage> with TickerProviderStateMixin{
                   content: SingleChildScrollView(
                     scrollDirection: Axis.vertical,
                     child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
+                        Text('Name: ',),
                         TextField(
                           controller: _bookController,
                         ),
+
+                        // MaterialColorPicker(
+                        //   allowShades: false,
+                        //   selectedColor: Color(s.book.color),
+                        //   onColorChange: (Color color){
+                        //     setState(() {
+                        //       s.book.color = color.value;
+                        //     });
+                        //   },
+                        // )
                         ColorPicker(
+                          paletteType: PaletteType.hueWheel,
+                          enableAlpha: false,
                           pickerColor: Color(s.book.color),
                           onColorChanged: (Color color){
                             setState(() {
@@ -307,54 +362,31 @@ class _HomePageState extends State<HomePage> with TickerProviderStateMixin{
         children: [
           Expanded(
             flex: 10,
-            child:TabBarView(
+            child:(_tabController.length>0)?TabBarView(
                 controller: _tabController,
                 children: vocabs.map((e){
                   return WordList(e: e,refresher: this.refreshWords,);
                 }
               ).toList(),
+            ):Center(
+              child: Text(
+                'No active books so far. Tap the + icon at the top to add a book.',
+              style: TextStyle(
+                color: Colors.grey[700],
+                fontSize: 20.0,
+                fontWeight: FontWeight.bold,
+              ),
+              textAlign: TextAlign.center,),
             )
           ),
-          Expanded(
-            flex: 1,
-            child: Row(
-                children: [
-                    Expanded(
-                      flex: 10,
-                      child: TextField(
-                        controller: _wordController,
-                        onSubmitted: (wordstr)async{
-                          var word = new Word(-1, vocabs[_tabController.index].book.id, _wordController.text, "", false);
-                          word = await VocabDatabase.instance.createWord(word);
-                          refreshWords();
-                          setState((){
-                            _wordController.clear();
-                          });
-                        },
-                        decoration: InputDecoration(
-                          hintText: 'Enter Word...',
-                        ),
-                      ),
-                    ),
-                    Expanded(
-                      flex: 1,
-                      child: IconButton(
-                        icon: Icon(Icons.send),
-                        onPressed: ()async{
-                          if(_wordController.text==""){return;}
-                          var word = new Word(-1, vocabs[_tabController.index].book.id, _wordController.text, "", false);
-                          word = await VocabDatabase.instance.createWord(word);
-                          refreshWords();
-                          setState((){
-                            _wordController.clear();
-                          });
-
-                        },
-                      ),
-                    )
-                  ],
-                ),
-          )
+          // Expanded(
+          //   flex: 1,
+          //   child: Row(
+          //       children: [
+          //
+          //         ],
+          //       ),
+          // )
         ],
       ),
     );
