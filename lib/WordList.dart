@@ -60,12 +60,14 @@ class MessageBar extends StatelessWidget {
 class WordCard extends StatelessWidget {
   const WordCard({
     Key? key,
+    required this.archived,
     required this.word,
     required this.refresher,
     required this.color
   }) : super(key: key);
   final Color color;
   final Word word;
+  final bool archived;
   final Function refresher;
 
   @override
@@ -84,10 +86,10 @@ class WordCard extends StatelessWidget {
             var client = Client();
             var response = await client.get(Uri.parse('https://api.dictionaryapi.dev/api/v2/entries/en/'+word.word));
             print(response.body);
-            DefinitionBox(response.body, context, word, this.refresher);
+            DefinitionBox(response.body, context, word, this.refresher, this.archived);
           }
           else{
-            DefinitionBox("", context, word, this.refresher);
+            DefinitionBox("", context, word, this.refresher, this.archived);
           }
         },
         label: Text(
@@ -126,6 +128,7 @@ class _WordListState extends State<WordList> {
   }
   @override
   Widget build(BuildContext context) {
+    refreshWords();
     return Container(
       child: Column(
         children: [
@@ -134,7 +137,7 @@ class _WordListState extends State<WordList> {
               itemCount: words.length,
               itemBuilder: (context, index){
                 var word = words[index];
-                return WordCard(word: word,color: widget.color, refresher:refreshWords);
+                return WordCard(word: word,color: widget.color, archived:widget.book.archived,refresher:refreshWords);
               },
 
             ):Center(
@@ -168,7 +171,7 @@ class _WordListState extends State<WordList> {
   }
 }
 class DefinitionBox{
-  DefinitionBox(String output, BuildContext context, Word wordobj, dynamic refresher){
+  DefinitionBox(String output, BuildContext context, Word wordobj, dynamic refresher, bool archived){
     // String word;
     String definition = wordobj.def;
     // bool updated = false;
@@ -221,7 +224,7 @@ class DefinitionBox{
             icon: Icon(Icons.thumb_up),
             label: Text("Got it.")
         ),
-        ElevatedButton.icon(
+        archived?Container():ElevatedButton.icon(
           style: ButtonStyle(
             backgroundColor: MaterialStateProperty.all(wordobj.known?Colors.yellow[800]:Colors.green),
           ),
@@ -234,7 +237,7 @@ class DefinitionBox{
           icon: Icon(wordobj.known?Icons.indeterminate_check_box:Icons.check_box),
           label: wordobj.known?Text("Forgotten"):Text("Known"),
         ),
-        DeleteButton(onDelete: ()async{
+        archived?Container():DeleteButton(onDelete: ()async{
           await VocabDatabase.instance.deleteWord(wordobj.id);
           refresher();
           Navigator.of(context).pop();

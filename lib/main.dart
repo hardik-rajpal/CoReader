@@ -197,6 +197,7 @@ class _BookMarkBarState extends State<BookMarkBar> {
                   ],
                 ),
                 onPressed: () {
+                  if(widget.book.archived){return;}
                   _bookmarkController.text = widget.book.bookmark.toString();
                   showDialog(context: context, builder: (context){
                     return AlertDialog(
@@ -272,6 +273,7 @@ class _NotesGridState extends State<NotesGrid> {
   }
   @override
   Widget build(BuildContext context) {
+    refreshPages();
     List<GridTile> children = [...pages.map((e) => GridTile(
         child: ElevatedButton(
           style: ButtonStyle(
@@ -398,7 +400,7 @@ class _NotePageEditableState extends State<NotePageEditable> {
           child: Row(
             mainAxisAlignment: MainAxisAlignment.end,
             children: [
-              SaveButton(onSave: ()async{
+              widget.book.archived?Container():SaveButton(onSave: ()async{
                 setState(() {
                   widget.page.content = widget.textController.text;
                 });
@@ -419,7 +421,7 @@ class _NotePageEditableState extends State<NotePageEditable> {
             children: [
               Card(
                 child: TextFormField(
-                  autofocus: true,
+                  autofocus: false,
                   style: TextStyle(
                   ),
                   controller: widget.textController,
@@ -436,7 +438,6 @@ class _NotePageEditableState extends State<NotePageEditable> {
 }
 class HomePage extends StatefulWidget {
   const HomePage({Key? key}) : super(key: key);
-
   @override
   _HomePageState createState() => _HomePageState();
 }
