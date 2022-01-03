@@ -1,5 +1,6 @@
 import 'dart:io';
 import 'dart:math';
+import 'package:CoReader/WordList.dart';
 import 'package:cached_network_image/cached_network_image.dart';
 import 'package:flutter/material.dart';
 import 'package:CoReader/Vocabs.dart';
@@ -7,6 +8,17 @@ import 'quote.dart';
 import 'package:http/http.dart';
 import 'dart:convert';
 import 'package:flutter_colorpicker/flutter_colorpicker.dart';
+
+class Constants{
+  static double ValueThres = 95;
+  static String glossaryState = 'Glossary';
+  static String notebookState = 'Notebook';
+  static double getVofHSV(Color color){
+    int r, g, b;
+    r = color.red; g = color.green; b = color.blue;
+    return 100*(max(r, max(g, b)))/255.0;
+  }
+}
 void main(){
   HttpOverrides.global = MyHttpOverrides();
   return runApp(
@@ -27,71 +39,40 @@ class MyHttpOverrides extends HttpOverrides{
 //TODO: Add notes widget and toggle button
 //TODO: add info/about page with sidenavbar
 //TODO: add option for background download of defs
-class WordList extends StatefulWidget{
-  final List<Word> words;
-  final Color color;
-  final Book book;
-  final Function refresher;
-  WordList({required this.words, required this.color, required this.refresher, required this.book});
-  @override
-  State<WordList> createState() => _WordListState();
-}
-class _WordListState extends State<WordList> {
-  List<Word> words = [];
-  void refreshWords()async{
-    List<Word> allwords = await VocabDatabase.instance.getAllWords(widget.book.id);
-    setState(() {
-      words = allwords;
-    });
-  }
-  @override
-  void initState() {
-    super.initState();
-    setState(() {
-      words = widget.words;
-    });
-  }
+class DeleteButton extends StatelessWidget {
+  final Function onDelete;
+  DeleteButton({required this.onDelete});
+
   @override
   Widget build(BuildContext context) {
-        return Container(
-          child: Column(
-            children: [
-              Expanded(
-                child:(words.length>0)?ListView.builder(
-                  itemCount: words.length,
-                  itemBuilder: (context, index){
-                    var word = words[index];
-                    return WordCard(word: word,color: widget.color, refresher:refreshWords);
-                  },
-
-                ):Center(
-                  child: Padding(
-                    padding: const EdgeInsets.all(16),
-                    child: Text(
-                      'No words added to glossary.\n Add words using the message bar below.',
-                      textAlign: TextAlign.center,
-                      style: TextStyle(
-                        color: Colors.grey[700],
-                        fontSize: 20.0,
-                        fontWeight: FontWeight.bold,
-                      ),
-                    ),
-                  ),
-                ),
-              ),
-              (!widget.book.archived)?MessageBar(
-              color:Color(widget.book.color),
-              onSubmit: (wordstr)async{
-                var word = new Word(-1,widget.book.id, wordstr, "", false);
-                word = await VocabDatabase.instance.createWord(word);
-                setState(() {
-                 words.add(word);
-                });
-              }
-              ):Container()
-            ],
-          ),
-        );
+    return ElevatedButton.icon(
+      style: ButtonStyle(
+        backgroundColor: MaterialStateProperty.all(Colors.redAccent),
+      ),
+      onPressed: (){
+        onDelete();
+      },
+      icon: Icon(Icons.delete_forever),
+      label: Text("Delete"),
+    );
+  }
+}
+class SaveButton extends StatelessWidget {
+  final Function onSave;
+  final String altText;
+  SaveButton({required this.onSave, required this.altText});
+  @override
+  Widget build(BuildContext context) {
+    return ElevatedButton.icon(
+      style: ButtonStyle(
+        backgroundColor: MaterialStateProperty.all(Colors.green),
+      ),
+      onPressed: (){
+        onSave();
+      },
+      icon: Icon(Icons.check),
+      label: Text(altText.length==0?"Save":altText),
+    );
   }
 }
 
@@ -101,7 +82,6 @@ class MainContent extends StatefulWidget {
   @override
   _MainContentState createState() => _MainContentState();
 }
-
 class _MainContentState extends State<MainContent> {
   late Vocab activeVocab = widget.activeVocab;
   late List<NotePage> pages = [];
@@ -177,102 +157,6 @@ class _MainContentState extends State<MainContent> {
           ),
         )
       ],
-    );
-  }
-}
-
-class WordCard extends StatelessWidget {
-  const WordCard({
-    Key? key,
-    required this.word,
-    required this.refresher,
-    required this.color
-  }) : super(key: key);
-  final Color color;
-  final Word word;
-  final Function refresher;
-
-  @override
-  Widget build(BuildContext context) {
-    return Padding(
-      padding: const EdgeInsets.fromLTRB(8.0, 0, 8.0, 0),
-      child: ElevatedButton.icon(
-        icon:Icon(word.known?Icons.check:Icons.info, color: (_HomePageState.getVofHSV(color)>_HomePageState.ValueThres)?Colors.black:Colors.white,),
-        style: ButtonStyle(
-          alignment: Alignment.centerLeft,
-          foregroundColor: MaterialStateProperty.all((_HomePageState.getVofHSV(color)>_HomePageState.ValueThres)?Colors.black:Colors.white),
-          backgroundColor: MaterialStateProperty.all(color),
-        ),
-        onPressed: ()async{
-          if(word.def==""){
-            var client = Client();
-            var response = await client.get(Uri.parse('https://api.dictionaryapi.dev/api/v2/entries/en/'+word.word));
-            print(response.body);
-            DefinitionBox(response.body, context, word, this.refresher);
-          }
-          else{
-            DefinitionBox("", context, word, this.refresher);
-          }
-        },
-        label: Text(
-          word.word,
-          style: TextStyle(
-            fontSize: 20.0,
-          ),
-        ),
-      ),
-    );
-  }
-}
-class MessageBar extends StatelessWidget {
-  final _wordController = TextEditingController();
-  final Color color;
-  final Function onSubmit;
-  MessageBar({required this.color, required this.onSubmit}){
-
-  }
-  @override
-  Widget build(BuildContext context) {
-    return DecoratedBox(
-      decoration: BoxDecoration(
-        color: this.color,
-      ),
-      child: Padding(
-        padding: const EdgeInsets.fromLTRB(8.0, 0, 8.0, 0),
-        child: Row(
-          children: [
-            Expanded(
-              flex: 10,
-              child: TextField(
-                controller: _wordController,
-                onSubmitted: (wordstr){onSubmit(wordstr);_wordController.clear();},
-                decoration: InputDecoration(
-                    isDense: true,
-                    contentPadding: EdgeInsets.all(10),
-                    hintText: 'Enter Word...',
-                    border: OutlineInputBorder(
-                        borderSide: BorderSide(color:Colors.red, width: 5.0),
-                        borderRadius: BorderRadius.all(Radius.circular(20.0))
-                    ),
-                    filled: true,
-                    fillColor: Colors.grey[200]
-                ),
-              ),
-            ),
-            Expanded(
-              flex: 1,
-              child: IconButton(
-                color:Colors.black,
-                icon: Icon(Icons.send, color: (_HomePageState.getVofHSV(this.color)>_HomePageState.ValueThres)?Colors.black:Colors.white,),
-                onPressed: () {
-                  onSubmit(_wordController.text);
-                  _wordController.clear();
-                }
-              ),
-            )
-          ],
-        ),
-      ),
     );
   }
 }
@@ -371,7 +255,6 @@ class NotesGrid extends StatefulWidget {
   _NotesGridState createState() => _NotesGridState();
 
 }
-
 class _NotesGridState extends State<NotesGrid> {
   late List<NotePage> pages = [];
   void refreshPages()async{
@@ -392,7 +275,7 @@ class _NotesGridState extends State<NotesGrid> {
           style: ButtonStyle(
               backgroundColor: MaterialStateProperty.all(Color(widget.book.color))
           ),
-          child: Text(e.title, style: TextStyle(color: (_HomePageState.getVofHSV(Color(widget.book.color))>_HomePageState.ValueThres)?Colors.black:Colors.white),),
+          child: Text(e.title, style: TextStyle(color: (Constants.getVofHSV(Color(widget.book.color))>Constants.ValueThres)?Colors.black:Colors.white),),
           onPressed: (){
             Navigator.of(context).push(MaterialPageRoute(builder: (context)=>NotePageEditable(page: e, book: widget.book, refresher: refreshPages,)));
           },
@@ -468,7 +351,7 @@ class _NotesGridState extends State<NotesGrid> {
           });
         }, child: Icon(
           Icons.add,
-          color: (_HomePageState.getVofHSV(Color(widget.book.color))>_HomePageState.ValueThres)?Colors.black:Colors.white),
+          color: (Constants.getVofHSV(Color(widget.book.color))>Constants.ValueThres)?Colors.black:Colors.white),
       )
       ));
       children = children.reversed.toList();
@@ -486,48 +369,6 @@ class _NotesGridState extends State<NotesGrid> {
     );
   }
 }
-
-
-class DeleteButton extends StatelessWidget {
-  final Function onDelete;
-  DeleteButton({required this.onDelete});
-
-  @override
-  Widget build(BuildContext context) {
-    return ElevatedButton.icon(
-      style: ButtonStyle(
-        backgroundColor: MaterialStateProperty.all(Colors.redAccent),
-      ),
-      onPressed: (){
-        onDelete();
-      },
-      icon: Icon(Icons.delete_forever),
-      label: Text("Delete"),
-    );
-  }
-}
-
-class SaveButton extends StatelessWidget {
-  final Function onSave;
-  final String altText;
-  SaveButton({required this.onSave, required this.altText});
-  @override
-  Widget build(BuildContext context) {
-    return ElevatedButton.icon(
-      style: ButtonStyle(
-        backgroundColor: MaterialStateProperty.all(Colors.green),
-      ),
-      onPressed: (){
-        onSave();
-      },
-      icon: Icon(Icons.check),
-      label: Text(altText.length==0?"Save":altText),
-    );
-  }
-}
-
-
-
 class NotePageEditable extends StatefulWidget {
   final TextEditingController textController = TextEditingController();
   final TextEditingController titleController = TextEditingController();
@@ -591,7 +432,6 @@ class _NotePageEditableState extends State<NotePageEditable> {
     );
   }
 }
-
 class HomePage extends StatefulWidget {
   const HomePage({Key? key}) : super(key: key);
 
@@ -602,7 +442,7 @@ class _HomePageState extends State<HomePage> with TickerProviderStateMixin{
   List<Vocab> vocabs = [
     // Vocab([Word(-1,-1,'flummoxed',"", false)], Book(-1,'The Kite Runner')),
   ];
-  static double ValueThres = 95;
+  // static double ValueThres = 95;
   bool firstRefreshDone = false;
   String otherState = 'Notebook';//can be 'Glossary'
   String currentState = 'Glossary';//can be 'Notebook'
@@ -651,11 +491,7 @@ class _HomePageState extends State<HomePage> with TickerProviderStateMixin{
       firstRefreshDone = true;
     });
   }
-  static double getVofHSV(Color color){
-    int r, g, b;
-    r = color.red; g = color.green; b = color.blue;
-    return 100*(max(r, max(g, b)))/255.0;
-  }
+
   _handleTabSelection(){
     setState(() {
       currentIndex = _tabController.index;
@@ -886,7 +722,7 @@ class _HomePageState extends State<HomePage> with TickerProviderStateMixin{
               child:Text(
                 s.book.name,
                 style: TextStyle(
-                  color: (getVofHSV(Color(s.book.color))>ValueThres)?Colors.black:Colors.white
+                  color: (Constants.getVofHSV(Color(s.book.color))>Constants.ValueThres)?Colors.black:Colors.white
                 ),
               ),
               onPressed: (){
@@ -946,90 +782,6 @@ class _HomePageState extends State<HomePage> with TickerProviderStateMixin{
     return color;
   }
 }
-
-class DefinitionBox{
-  DefinitionBox(String output, BuildContext context, Word wordobj, dynamic refresher){
-    // String word;
-    String definition = wordobj.def;
-    // bool updated = false;
-    // word = "";
-    if(output!=""){
-
-      try{
-        dynamic data = jsonDecode(output);
-        definition = data.map((d){
-          return d['word']+': \n'+d["meanings"].map((m){
-            int numdef = 0;
-            return m["definitions"].map((def){
-              numdef+=1;
-              return '${numdef}. ['+ m["partOfSpeech"] +"] "+ def["definition"];
-            }).toList().join("\n");
-          }).toList().join("\n\n");
-        }).toList().join("\n");
-      }
-      catch(e){
-        // word = wordobj.word;
-        definition = "We couldn't get that word. Sorry.";
-      }
-    }
-
-    // print(definition);
-
-    var alertDialog = AlertDialog(
-      title: Text("Definitions"),
-      content: SingleChildScrollView(
-        child: DecoratedBox(
-          decoration: BoxDecoration(
-            border: Border.all(color: Colors.black),
-          ),
-          child: Padding(
-            padding: const EdgeInsets.all(8.0),
-            child: Text(
-              definition,
-              ),
-          ),
-        ),
-        scrollDirection: Axis.vertical,
-      ),
-      actions: [
-        ElevatedButton.icon(
-            onPressed: ()async{
-                Navigator.of(context).pop();
-                wordobj.def = definition;
-                await VocabDatabase.instance.updateWord(wordobj);
-            },
-            icon: Icon(Icons.thumb_up),
-            label: Text("Got it.")
-        ),
-        ElevatedButton.icon(
-          style: ButtonStyle(
-            backgroundColor: MaterialStateProperty.all(wordobj.known?Colors.yellow[800]:Colors.green),
-          ),
-            onPressed: ()async{
-              wordobj.known = !wordobj.known;
-              await VocabDatabase.instance.updateWord(wordobj);
-              Navigator.of(context).pop();
-              refresher();
-            },
-            icon: Icon(wordobj.known?Icons.indeterminate_check_box:Icons.check_box),
-            label: wordobj.known?Text("Forgotten"):Text("Known"),
-        ),
-        DeleteButton(onDelete: ()async{
-          await VocabDatabase.instance.deleteWord(wordobj.id);
-          refresher();
-          Navigator.of(context).pop();
-        })
-      ],
-
-    );
-    showDialog(
-        context: context,
-        builder: (BuildContext context){
-          return alertDialog;
-        }
-    );
-  }
-}
 class ArchivePage extends StatefulWidget {
   final dynamic data;
   final dynamic refresher;
@@ -1038,7 +790,6 @@ class ArchivePage extends StatefulWidget {
   @override
   State<ArchivePage> createState() => _ArchivePageState();
 }
-
 class _ArchivePageState extends State<ArchivePage> {
   @override
   Widget build(BuildContext context) {
@@ -1094,7 +845,7 @@ class _ArchivePageState extends State<ArchivePage> {
                 },
                 onPressed: (){
                   Navigator.of(context).push(
-                      MaterialPageRoute(builder: (context)=>WordListPage(vocab: vocab,))
+                      MaterialPageRoute(builder: (context)=>ArchivedDataPage(vocab: vocab,))
                   );
                 },
                   style: ButtonStyle(
@@ -1122,11 +873,9 @@ class _ArchivePageState extends State<ArchivePage> {
     );
   }
 }
-
-
-class WordListPage extends StatelessWidget {
+class ArchivedDataPage extends StatelessWidget {
   final dynamic vocab;
-  WordListPage({this.vocab});
+  ArchivedDataPage({this.vocab});
 
   @override
   Widget build(BuildContext context) {
