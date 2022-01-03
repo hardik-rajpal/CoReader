@@ -25,49 +25,370 @@ class MyHttpOverrides extends HttpOverrides{
       ..badCertificateCallback = (X509Certificate cert, String host, int port)=> true;
   }
 }
+// TODO: enable number+abbreviated (21LF21C)
+//TODO: Add notes widget and toggle button
+//TODO: add info/about page with sidenavbar
+//TODO: add option for background download of defs
 class WordList extends StatelessWidget{
-  final dynamic e;
+  final Vocab vocab;
   final dynamic refresher;
-  WordList({@required this.e, this.refresher});
+  WordList({required this.vocab, this.refresher});
   @override
   Widget build(BuildContext context) {
+    var mainContent;
+    if(vocab.words.isEmpty){
+      mainContent = Center(
+        child: Padding(
+          padding: const EdgeInsets.all(16),
+          child: Text(
+            'No words added to glossary.\n Add words using the message bar below.',
+            textAlign: TextAlign.center,
+            style: TextStyle(
+              color: Colors.grey[700],
+              fontSize: 20.0,
+              fontWeight: FontWeight.bold,
+            ),
+          ),
+        ),
+      );
+    }
+    else{
+      mainContent = ListView.builder(
+        itemCount: vocab.words.length,
+        itemBuilder: (context, index){
+          var word = vocab.words[index];
+          return WordCard(word: word, vocab: vocab, refresher: refresher);
+        },
+      );
+    }
+
+
     return Container(
       decoration: BoxDecoration(
         image: DecorationImage(
-            image:  _HomePageState.getImageWidget(this.e.book),
+            image:  _HomePageState.getImageWidget(this.vocab.book),
             fit: BoxFit.fill,
             opacity: 0.3
         ),
       ),
-      child: ListView.builder(
-        itemCount: e.words.length,
-        itemBuilder: (context, index){
-          var f = e.words[index];
-          var color = f.known?Colors.green[500]:Colors.blue;
-          return ElevatedButton.icon(
-            icon:Icon(Icons.info),
-            style: ButtonStyle(
-              backgroundColor: MaterialStateProperty.all(color),
-            ),
-            onPressed: ()async{
-              if(f.def==""){
-                var client = Client();
-                var response = await client.get(Uri.parse('https://api.dictionaryapi.dev/api/v2/entries/en/'+f.word));
-                print(response.body);
-                DefinitionBox definitionBox = DefinitionBox(response.body, context, f, this.refresher);
-              }
-              else{
-                DefinitionBox definitionBox = DefinitionBox("", context, f, this.refresher);
-              }
-            },
-            label: Text(
-              f.word,
-              style: TextStyle(
-                fontSize: 20.0,
+      child: mainContent
+    );
+  }
+}
+
+class WordCard extends StatelessWidget {
+  const WordCard({
+    Key? key,
+    required this.word,
+    required this.vocab,
+    required this.refresher,
+  }) : super(key: key);
+
+  final Word word;
+  final Vocab vocab;
+  final Function refresher;
+
+  @override
+  Widget build(BuildContext context) {
+    return Padding(
+      padding: const EdgeInsets.fromLTRB(8.0, 0, 8.0, 0),
+      child: ElevatedButton.icon(
+        icon:Icon(word.known?Icons.check:Icons.info, color: (_HomePageState.getVofHSV(Color(vocab.book.color))>_HomePageState.ValueThres)?Colors.black:Colors.white,),
+        style: ButtonStyle(
+          alignment: Alignment.centerLeft,
+          foregroundColor: MaterialStateProperty.all((_HomePageState.getVofHSV(Color(vocab.book.color))>_HomePageState.ValueThres)?Colors.black:Colors.white),
+          backgroundColor: MaterialStateProperty.all(Color(vocab.book.color)),
+        ),
+        onPressed: ()async{
+          if(word.def==""){
+            var client = Client();
+            var response = await client.get(Uri.parse('https://api.dictionaryapi.dev/api/v2/entries/en/'+word.word));
+            print(response.body);
+            DefinitionBox definitionBox = DefinitionBox(response.body, context, word, this.refresher);
+          }
+          else{
+            DefinitionBox definitionBox = DefinitionBox("", context, word, this.refresher);
+          }
+        },
+        label: Text(
+          word.word,
+          style: TextStyle(
+            fontSize: 20.0,
+          ),
+        ),
+      ),
+    );
+  }
+}
+class MessageBar extends StatelessWidget {
+  final _wordController = TextEditingController();
+  final Color color;
+  final Function onSubmit;
+  MessageBar({required this.color, required this.onSubmit}){
+
+  }
+  @override
+  Widget build(BuildContext context) {
+    return DecoratedBox(
+      decoration: BoxDecoration(
+        color: this.color,
+      ),
+      child: Padding(
+        padding: const EdgeInsets.fromLTRB(8.0, 0, 8.0, 0),
+        child: Row(
+          children: [
+            Expanded(
+              flex: 10,
+              child: TextField(
+                controller: _wordController,
+                onSubmitted: (wordstr){onSubmit(wordstr);_wordController.clear();},
+                decoration: InputDecoration(
+                    isDense: true,
+                    contentPadding: EdgeInsets.all(10),
+                    hintText: 'Enter Word...',
+                    border: OutlineInputBorder(
+                        borderSide: BorderSide(color:Colors.red, width: 5.0),
+                        borderRadius: BorderRadius.all(Radius.circular(20.0))
+                    ),
+                    filled: true,
+                    fillColor: Colors.grey[200]
+                ),
               ),
             ),
-          );
-        },
+            Expanded(
+              flex: 1,
+              child: IconButton(
+                color:Colors.black,
+                icon: Icon(Icons.send, color: (_HomePageState.getVofHSV(this.color)>_HomePageState.ValueThres)?Colors.black:Colors.white,),
+                onPressed: () {
+                  onSubmit(_wordController.text);
+                  _wordController.clear();
+                }
+              ),
+            )
+          ],
+        ),
+      ),
+    );
+  }
+}
+class BookMarkBar extends StatefulWidget {
+  final Book book;
+  final String otherState;
+  final Function stateChanger;
+  BookMarkBar({required this.book, required this.otherState, required this.stateChanger}){
+  }
+
+  @override
+  State<BookMarkBar> createState() => _BookMarkBarState();
+}
+class _BookMarkBarState extends State<BookMarkBar> {
+  final TextEditingController _bookmarkController = TextEditingController();
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      child:DecoratedBox(
+        decoration: BoxDecoration(
+            color: Colors.white
+        ),
+        child: Padding(
+          padding: const EdgeInsets.symmetric(horizontal: 8.0),
+          child: Row(
+            children: [
+              TextButton(
+
+                child: Row(
+                  children: [
+                    Icon(
+                      Icons.bookmark,
+                      color: Colors.blueAccent,
+                    ),
+                    Text('Now @ Page ${widget.book.bookmark}',),
+                  ],
+                ),
+                onPressed: () {
+                  _bookmarkController.text = widget.book.bookmark.toString();
+                  showDialog(context: context, builder: (context){
+                    return AlertDialog(
+                      title: Text('Set Bookmark'),
+                      content: TextField(
+                        autofocus: true,
+                        controller: _bookmarkController,
+                        keyboardType: TextInputType.number,
+                      ),
+                      actions: [
+                        ElevatedButton( child: Text('Save'),onPressed: (){
+                          int page = 1;
+                          try{
+                            page = int.parse(_bookmarkController.text);
+                          }
+                          catch(e){
+                            return;
+                          }
+                          setState(() {
+                            widget.book.bookmark = page;
+                          });
+                          VocabDatabase.instance.updateBook(widget.book);
+                          Navigator.of(context).pop();
+                        },)
+                      ],
+                    );
+                  });
+                },
+              ),
+              Expanded(
+                child: LinearProgressIndicator(
+                  backgroundColor: Colors.green[200],
+                  color: Colors.green[800],
+                  value: widget.book.bookmark/widget.book.size,
+                ),
+              ),
+              Container(
+                child: TextButton(
+                  child: Text(widget.otherState),
+                  onPressed: (){
+                    widget.stateChanger(widget.otherState);
+                  },
+                ),
+              )
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+}
+class NotesGrid extends StatefulWidget {
+  List<NotePage> pages;
+  List<Vocab> vocabs;
+  Book book;
+  TextEditingController titleController = TextEditingController();
+  NotesGrid({required this.pages, required this.vocabs, required this.book});
+  @override
+  _NotesGridState createState() => _NotesGridState();
+}
+
+class _NotesGridState extends State<NotesGrid> {
+  @override
+  Widget build(BuildContext context) {
+    return Padding(
+      padding: const EdgeInsets.all(8.0),
+      child: GridView.count(
+          crossAxisSpacing: 10.0,
+          mainAxisSpacing: 10.0,
+          crossAxisCount: 4,
+          children:[...widget.pages.map((e) => GridTile(
+              child: ElevatedButton(
+                style: ButtonStyle(
+                  backgroundColor: MaterialStateProperty.all(Color(widget.book.color))
+                ),
+                child: Text(e.title, style: TextStyle(color: (_HomePageState.getVofHSV(Color(widget.book.color))>_HomePageState.ValueThres)?Colors.black:Colors.white),),
+                onPressed: (){
+                  Navigator.of(context).push(MaterialPageRoute(builder: (context)=>NotePageEditable(page: e, book: widget.book)));
+                },
+              ))
+          ).toList(), GridTile(child: ElevatedButton(
+              style: ButtonStyle(
+                backgroundColor: MaterialStateProperty.all(Color(widget.book.color))
+              ),
+              onPressed: (){
+            Book newNoteBook;
+            showDialog(context: context, builder: (context){
+              var d = DateTime.now();
+              widget.titleController.text = d.day.toString() +'/'+ d.month.toString()+'/'+d.year.toString();
+              return AlertDialog(
+                title: Text("New Note"),
+                content: Column(
+                  children: [
+                    TextField(
+                      controller: widget.titleController,
+                      decoration: InputDecoration(
+                        hintText: "Title"
+                      ),
+                    ),
+                  ],
+                ),
+                actions: [
+                  ElevatedButton(
+                      onPressed: ()async{
+                        Navigator.of(context).pop();
+                        NotePage newpage = await VocabDatabase.instance.createPage(NotePage(-1,widget.book.id, '', widget.titleController.text));
+                        var temppages = widget.pages.reversed.toList();
+                        temppages.add(newpage);
+                        setState(() {
+                          widget.pages = temppages.reversed.toList();
+                        });
+                      },
+                      child: Text('Save'))
+                ],
+              );
+            });
+          }, child: Icon(
+              Icons.add,
+            color: (_HomePageState.getVofHSV(Color(widget.book.color))>_HomePageState.ValueThres)?Colors.black:Colors.white),
+          ))]
+      ),
+    );
+  }
+}
+
+
+
+
+class NotePageEditable extends StatefulWidget {
+  final TextEditingController textController = TextEditingController();
+  final Book book;
+  NotePage page;
+  NotePageEditable({required this.page, required this.book});
+  @override
+  _NotePageEditableState createState() => _NotePageEditableState();
+}
+
+class _NotePageEditableState extends State<NotePageEditable> {
+  @override
+  Widget build(BuildContext context) {
+    return Scaffold(
+      appBar: AppBar(
+        title: Text('Note: '+widget.page.title),
+      ),
+      body: SingleChildScrollView(
+        scrollDirection: Axis.vertical,
+        child: Padding(
+          padding: EdgeInsets.all(8),
+          child: Column(
+            children: [
+              Card(
+                child: TextField(
+                  controller: widget.textController,
+                  keyboardType: TextInputType.multiline,
+                  maxLines: null,
+                ),
+              ),
+              DecoratedBox(
+                decoration: BoxDecoration(
+                  color: Color(Colors.white.value)
+                ),
+                child: Row(
+                  children: [
+                    ElevatedButton(
+                        onPressed: (){
+                          //TODO:dialog box to rename note.
+                        },
+                        child: Text('Rename')
+                    ),
+                    ElevatedButton(
+                        onPressed: (){
+                          widget.page.content = widget.textController.text;
+                          VocabDatabase.instance.updatePage(widget.page);
+                        },
+                        child: Text('Save')
+                    )
+                  ],
+                ),
+              )
+            ],
+          ),
+        ),
       ),
     );
   }
@@ -79,27 +400,30 @@ class HomePage extends StatefulWidget {
   @override
   _HomePageState createState() => _HomePageState();
 }
-
 class _HomePageState extends State<HomePage> with TickerProviderStateMixin{
   List<Vocab> vocabs = [
     // Vocab([Word(-1,-1,'flummoxed',"", false)], Book(-1,'The Kite Runner')),
-    // Vocab(['centurion'], '21 Lessons from the 21st Century')
   ];
-  double ValueThres = 95;
+  static double ValueThres = 95;
   bool firstRefreshDone = false;
+  String otherState = 'Notebook';//can be 'Glossary'
+  String currentState = 'Glossary';//can be 'Notebook'
   String coverPageDialogUrl = 'assets/covers/default.jpg';
   List<Vocab> archivedVocabs = [];
+  List<NotePage> pages = [];
   late TabController _tabController;
   int currentIndex = 0;
-  TextEditingController _bookmarkController = TextEditingController();
-  TextEditingController _wordController = TextEditingController();
+  TextEditingController _bookSizeController = TextEditingController();
   TextEditingController _bookController = TextEditingController();
   void refreshWords() async {
     int tabindex = _tabController.index;
     List<Book> allbooks = await VocabDatabase.instance.getAllBooks();
     print('${allbooks.length} is all books');
     List<Word> allwords = await VocabDatabase.instance.getAllWords();
-
+    List<NotePage> allpages =       pages = await VocabDatabase.instance.getAllPages();
+    setState(() {
+      pages = allpages;
+    });
     List<Book> openBooks = allbooks.where((element) => !element.archived).toList();
     List<Book> archivedBooks = allbooks.where((element) => element.archived).toList();
 
@@ -109,13 +433,13 @@ class _HomePageState extends State<HomePage> with TickerProviderStateMixin{
     });
     for(int i=0;i<openBooks.length;i++){
       setState(() {
-        vocabs.add(Vocab(allwords.where((element) => element.bookId==openBooks[i].id).toList(), openBooks[i]));
+        vocabs.add(Vocab(allwords.where((element) => element.bookId==openBooks[i].id).toList().reversed.toList(), openBooks[i]));
       });
     }
     for(int i=0;i<archivedBooks.length;i++){
       print(archivedBooks.length);
       setState(() {
-        archivedVocabs.add(Vocab(allwords.where((element) => element.bookId==archivedBooks[i].id).toList(), archivedBooks[i]));
+        archivedVocabs.add(Vocab(allwords.where((element) => element.bookId==archivedBooks[i].id).toList().reversed.toList(), archivedBooks[i]));
       });
     }
     _tabController = TabController(length: vocabs.length, vsync: this);
@@ -128,7 +452,7 @@ class _HomePageState extends State<HomePage> with TickerProviderStateMixin{
       firstRefreshDone = true;
     });
   }
-  double getVofHSV(Color color){
+  static double getVofHSV(Color color){
     int r, g, b;
     r = color.red; g = color.green; b = color.blue;
     return 100*(max(r, max(g, b)))/255.0;
@@ -141,6 +465,11 @@ class _HomePageState extends State<HomePage> with TickerProviderStateMixin{
   Future<Book> getCoverPage(Book book)async{
     var client = Client();
     String title = book.name.split(' ').join('+');
+    List<String> chars = title.characters.toList();
+    if(title.toUpperCase().compareTo(title)==0){
+
+      title = title.characters.toList().join('+');
+    }
     final String url = 'https://book-cover-api.herokuapp.com/getBookCover?bookTitle=${title}';
     try{
       var response = await client.get(Uri.parse(url));
@@ -182,61 +511,7 @@ class _HomePageState extends State<HomePage> with TickerProviderStateMixin{
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      bottomSheet: DecoratedBox(
-        decoration: BoxDecoration(
-          color: (_tabController.length>0)?Color(vocabs[currentIndex].book.color):Colors.grey[100],
-        ),
-        child: Padding(
-          padding: const EdgeInsets.fromLTRB(8.0, 0, 8.0, 0),
-          child: Row(
-            children: (_tabController.length>0)?[
-              Expanded(
-                flex: 10,
-                child: TextField(
-                    controller: _wordController,
-                    onSubmitted: (wordstr)async{
-                      var word = new Word(-1, vocabs[_tabController.index].book.id, _wordController.text, "", false);
-                      word = await VocabDatabase.instance.createWord(word);
-                      refreshWords();
-                      setState((){
-                        _wordController.clear();
-                      });
-                    },
-                    decoration: InputDecoration(
-                      isDense: true,
-                      contentPadding: EdgeInsets.all(10),
-                      hintText: 'Enter Word...',
-                      border: OutlineInputBorder(
-                        borderSide: BorderSide(color:Colors.red, width: 5.0),
-                        borderRadius: BorderRadius.all(Radius.circular(20.0))
-                      ),
-                      filled: true,
-                      fillColor: Colors.grey[200]
-                    ),
-                  ),
-              ),
-              Expanded(
-                flex: 1,
-                child: IconButton(
-                  color:Colors.black,
-                  icon: Icon(Icons.send, color: (getVofHSV(Color(vocabs[currentIndex].book.color))>ValueThres)?Colors.black:Colors.white,),
-                  onPressed: ()async{
-                    if(_wordController.text.length==0){return;}
-                    var word = new Word(-1, vocabs[_tabController.index].book.id, _wordController.text, "", false);
-                    word = await VocabDatabase.instance.createWord(word);
-                    refreshWords();
-                    setState((){
-                      _wordController.clear();
-                    });
-
-                  },
-                ),
-              )
-            ] : [],
-          ),
-        ),
-      ),
-
+      backgroundColor: Colors.white,
       appBar: AppBar(
         title: Text('CoReader'),
         centerTitle: false,
@@ -245,7 +520,7 @@ class _HomePageState extends State<HomePage> with TickerProviderStateMixin{
             showDialog(
               context: context,
               builder: (BuildContext context){
-                _bookmarkController.clear();_bookController.clear();
+                _bookSizeController.clear();_bookController.clear();
                 return AlertDialog(
                   title: Text("New Book"),
                   content: Column(
@@ -258,7 +533,7 @@ class _HomePageState extends State<HomePage> with TickerProviderStateMixin{
                         ),
                       ),
                       TextField(
-                        controller: _bookmarkController,
+                        controller: _bookSizeController,
                         decoration: InputDecoration(
                           hintText: 'Number of Pages',
                         ),
@@ -271,13 +546,13 @@ class _HomePageState extends State<HomePage> with TickerProviderStateMixin{
                       onPressed: () async {
                         int numpages=1;
                         try{
-                          numpages = int.parse(_bookmarkController.text);
+                          numpages = int.parse(_bookSizeController.text);
                         }
                         catch(e){
                           return;
                         }
                         Book book = new Book(-1, _bookController.text, false, Colors.deepOrange.value, "assets/covers/default.jpg", 1, numpages);
-                        _bookController.clear();_bookmarkController.clear();
+                        _bookController.clear();_bookSizeController.clear();
                         Navigator.of(context).pop();
                         ScaffoldMessenger.of(context).showSnackBar(SnackBar(
                           content: Text("Getting cover page. Please wait..."),
@@ -295,12 +570,13 @@ class _HomePageState extends State<HomePage> with TickerProviderStateMixin{
           },
               icon: Icon(Icons.add)),
           IconButton(
+            icon: Icon(Icons.archive),
             onPressed: (){
               Navigator.of(context).push(
                 MaterialPageRoute(builder: (context)=>ArchivePage(data: archivedVocabs,refresher: this.refreshWords,))
               );
             },
-            icon: Icon(Icons.archive)
+
           )
         ],
         bottom: TabBar(
@@ -313,7 +589,7 @@ class _HomePageState extends State<HomePage> with TickerProviderStateMixin{
             onLongPress: (){
               showDialog(context: context, builder: (BuildContext context){
                 _bookController.text = s.book.name;
-                _bookmarkController.text = s.book.size.toString();
+                _bookSizeController.text = s.book.size.toString();
                 return AlertDialog(
                   title: Text("Edit Book"),
                   content: SingleChildScrollView(
@@ -329,7 +605,7 @@ class _HomePageState extends State<HomePage> with TickerProviderStateMixin{
                         SizedBox.fromSize(size: Size.fromHeight(10),),
                         Text('Number of Pages:'),
                         TextField(
-                          controller: _bookmarkController,
+                          controller: _bookSizeController,
                           keyboardType: TextInputType.number,
                         ),
                         ColorPicker(
@@ -382,18 +658,26 @@ class _HomePageState extends State<HomePage> with TickerProviderStateMixin{
                       onPressed: ()async{
                         int size = 1;
                         try{
-                          size = int.parse(_bookmarkController.text);
+                          size = int.parse(_bookSizeController.text);
                         }
                         catch(e){
                           return;
                         }
-                        setState(() {
+                        Navigator.of(context).pop();
+                        if(s.book.name!=_bookController.text){
                           s.book.name = _bookController.text;
+                          ScaffoldMessenger.of(context).showSnackBar(SnackBar(
+                            content: Text("Updating cover page. Please wait..."),
+                          ));
+                          s.book = await getCoverPage(s.book);
+                        }
+                        setState(() {
                           s.book.size =  size;
                         });
-                        _bookController.clear();_bookmarkController.clear();
+
+                        _bookController.clear();_bookSizeController.clear();
                         await VocabDatabase.instance.updateBook(s.book);
-                        Navigator.of(context).pop();
+                        refreshWords();
                       },
                       icon: Icon(Icons.check),
                       label: Text("Save"),
@@ -422,82 +706,27 @@ class _HomePageState extends State<HomePage> with TickerProviderStateMixin{
         ),
 
       ),
-      backgroundColor: Colors.white,
-
       body: Column(
         children: [
-          Container(
-            child:DecoratedBox(
-              decoration: BoxDecoration(
-                color: Colors.white
-              ),
-              child: Padding(
-                padding: const EdgeInsets.symmetric(horizontal: 8.0),
-                child: (_tabController.length==0)?Text(''):Row(
-                  children: [
-                    TextButton(
-
-                      child: Row(
-                        children: [
-                          Icon(
-                            Icons.bookmark,
-                            color: Colors.blueAccent,
-                          ),
-                          Text('Now @ Page ${(_tabController.length>0)?vocabs[currentIndex].book.bookmark:0}',),
-                        ],
-                      ),
-                      onPressed: () {
-                        _bookmarkController.text = vocabs[currentIndex].book.bookmark.toString();
-                        showDialog(context: context, builder: (context){
-                          return AlertDialog(
-                            title: Text('Set Bookmark'),
-                            content: TextField(
-                              autofocus: true,
-                              controller: _bookmarkController,
-                              keyboardType: TextInputType.number,
-                            ),
-                            actions: [
-                              ElevatedButton( child: Text('Save'),onPressed: (){
-                                int page = 1;
-                                try{
-                                  page = int.parse(_bookmarkController.text);
-                                }
-                                catch(e){
-                                  return;
-                                }
-                                setState(() {
-                                  vocabs[currentIndex].book.bookmark = page;
-                                });
-                                VocabDatabase.instance.updateBook(vocabs[currentIndex].book);
-                                Navigator.of(context).pop();
-                              },)
-                            ],
-                          );
-                        });
-                      },
-                    ),
-                    Expanded(
-                      child: LinearProgressIndicator(
-                        backgroundColor: Colors.green[200],
-                        color: Colors.green[800],
-                        value: vocabs[currentIndex].book.bookmark/vocabs[currentIndex].book.size,
-                      ),
-                    ),
-                  ],
-                ),
-              ),
-            ),
-          ),
+          (_tabController.length>0)?BookMarkBar(
+            book: vocabs[currentIndex].book,
+            otherState:otherState,
+            stateChanger: (String state){
+                  setState(() {
+                    otherState = currentState;
+                    currentState = state;
+                  });
+            },
+          ):SizedBox(width: 0,height: 0,),
           Expanded(
             flex: 10,
             child:(_tabController.length>0)?TabBarView(
                 controller: _tabController,
                 children: vocabs.map((e){
-                  return WordList(e: e,refresher: this.refreshWords,);
+                  return (currentState=='Glossary')?WordList(vocab: e,refresher: this.refreshWords,):NotesGrid(pages: pages.where((element) => element.bookId==e.book.id).toList(), vocabs: vocabs, book: e.book,);
                 }
               ).toList(),
             ):Center(
-
               child: Text(
                 (firstRefreshDone)?'No active books so far. Tap the + icon at the top to add a book.':'Loading active books...',
               style: TextStyle(
@@ -510,6 +739,14 @@ class _HomePageState extends State<HomePage> with TickerProviderStateMixin{
           ),
         ],
       ),
+      bottomSheet: (_tabController.length>0&&currentState=='Glossary')?MessageBar(
+          color:Color(vocabs[currentIndex].book.color),
+          onSubmit: (wordstr)async{
+            var word = new Word(-1, vocabs[_tabController.index].book.id, wordstr, "", false);
+            word = await VocabDatabase.instance.createWord(word);
+            refreshWords();
+          }
+      ):SizedBox(width: 0,height: 0,),
     );
   }
 
@@ -564,7 +801,17 @@ class DefinitionBox{
     var alertDialog = AlertDialog(
       title: Text("Definitions"),
       content: SingleChildScrollView(
-          child: Text(definition),
+        child: DecoratedBox(
+          decoration: BoxDecoration(
+            border: Border.all(color: Colors.black),
+          ),
+          child: Padding(
+            padding: const EdgeInsets.all(8.0),
+            child: Text(
+              definition,
+              ),
+          ),
+        ),
         scrollDirection: Axis.vertical,
       ),
       actions: [
@@ -579,7 +826,7 @@ class DefinitionBox{
         ),
         ElevatedButton.icon(
           style: ButtonStyle(
-            backgroundColor: MaterialStateProperty.all(wordobj.known?Colors.yellow:Colors.green),
+            backgroundColor: MaterialStateProperty.all(wordobj.known?Colors.yellow[800]:Colors.green),
           ),
             onPressed: ()async{
               wordobj.known = !wordobj.known;
@@ -724,7 +971,7 @@ class WordListPage extends StatelessWidget {
       appBar: AppBar(
         title: Text(vocab.book.name),
       ),
-      body: WordList(e: this.vocab,refresher: (){},),
+      body: WordList(vocab: this.vocab,refresher: (){},),
     );
   }
 }

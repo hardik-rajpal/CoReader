@@ -68,7 +68,7 @@ CREATE TABLE ${Vocab.pagesTableName} (
     final db = await instance.database;
     Map<String,Object?> json = page.toJson();
     json.remove(Vocab.idfield);
-    final id = await db.insert(Vocab.wordstableName,json);
+    final id = await db.insert(Vocab.pagesTableName,json);
     page.id = id;
     return page;
   }
