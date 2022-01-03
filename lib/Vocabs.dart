@@ -86,23 +86,37 @@ CREATE TABLE ${Vocab.pagesTableName} (
     }).toList();
     return books;
   }
-  Future<List<Word>> getAllWords() async{
+  Future<List<Word>> getAllWords(int bookid) async{
     final db = await instance.database;
-    final maps= await db.query(
-      Vocab.wordstableName,
-      columns:Vocab.WordColumns,
-    );
+    List<Map> maps;
+    if(bookid==-1){
+      maps= await db.query(
+          Vocab.wordstableName,
+          columns:Vocab.WordColumns,
+      );
+    }
+    else{
+      maps= await db.query(
+          Vocab.wordstableName,
+          columns:Vocab.WordColumns,
+          where:'${Vocab.bookidfield} = ?',
+          whereArgs: [bookid]
+      );
+    }
+
     List<Word>  words = maps.map((s){
       Word word = Word.fromJson(s);
       return word;
     }).toList();
     return words;
   }
-  Future<List<NotePage>> getAllPages() async{
+  Future<List<NotePage>> getAllPages(int bookid) async{
     final db = await instance.database;
     final maps= await db.query(
       Vocab.pagesTableName,
       columns:Vocab.PageColumns,
+      where: '${Vocab.bookidfield} = ?',
+      whereArgs: [bookid]
     );
     List<NotePage>  pages = maps.map((s){
       NotePage page = NotePage.fromJson(s);
@@ -137,7 +151,12 @@ CREATE TABLE ${Vocab.pagesTableName} (
       where:'${Vocab.bookidfield} = ?',
       whereArgs: [id],
     );
-    final int b2 = await db.delete(
+    await db.delete(
+      Vocab.pagesTableName,
+      where:'${Vocab.bookidfield} = ?',
+      whereArgs: [id],
+    );
+    await db.delete(
       Vocab.bookstableName,
       where:'${Vocab.idfield} = ?',
       whereArgs: [id],

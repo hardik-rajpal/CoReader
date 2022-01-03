@@ -28,8 +28,10 @@ class Vocab{
 
   late Book book;
   late List<Word> words;
+  // late List<NotePage> pages;
   Vocab(List<Word> _words, Book _book){
     words = _words; book = _book;
+    // pages = _pages;
   }
 }
 
