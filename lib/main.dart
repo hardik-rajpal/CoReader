@@ -125,9 +125,11 @@ class _MainContentState extends State<MainContent> {
   }
   @override
   Widget build(BuildContext context) {
+    activeVocab = widget.activeVocab;
     setState(() {
       mainContent = getMainContent();
     });
+
     return Column(
       children: [
         BookMarkBar(
@@ -439,10 +441,7 @@ class HomePage extends StatefulWidget {
   _HomePageState createState() => _HomePageState();
 }
 class _HomePageState extends State<HomePage> with TickerProviderStateMixin{
-  List<Vocab> vocabs = [
-    // Vocab([Word(-1,-1,'flummoxed',"", false)], Book(-1,'The Kite Runner')),
-  ];
-  // static double ValueThres = 95;
+  List<Vocab> vocabs = [];
   bool firstRefreshDone = false;
   String otherState = 'Notebook';//can be 'Glossary'
   String currentState = 'Glossary';//can be 'Notebook'
@@ -537,11 +536,11 @@ class _HomePageState extends State<HomePage> with TickerProviderStateMixin{
       currentIndex = _tabController.index;
       vocabs = temp.reversed.toList();
       _tabController = TabController(length: vocabs.length, vsync: this);
-      _tabController.animateTo(currentIndex, duration: Duration());
-      if(currentIndex==0){
-        _tabController.animateTo(currentIndex+1, duration: Duration());
-        _tabController.animateTo(currentIndex, duration: Duration());
-      }
+      _tabController.addListener(_handleTabSelection);
+      // if(_tabController.length>0){
+      //   _tabController.animateTo(currentIndex, duration: Duration());
+      // }
+
     });
   }
   @override
