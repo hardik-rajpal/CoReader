@@ -122,11 +122,15 @@ class _WordListState extends State<WordList> {
   List<Word> words = [];
   bool disposed = false;
   void refreshWords()async{
-    if(disposed||(!mounted)){return;}
+    //FIND: why mounted doesn't work.
+    // if((!mounted)){return;}
     List<Word> allwords = await VocabDatabase.instance.getAllWords(widget.book.id);
-    setState(() {
-      words = allwords;
-    });
+    try{
+      setState(() {
+        words = allwords;
+      });
+    }catch(e){}
+
   }
   @override
   void initState() {

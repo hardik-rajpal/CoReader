@@ -263,9 +263,11 @@ class _NotesGridState extends State<NotesGrid> {
   late List<NotePage> pages = [];
   void refreshPages()async{
     List<NotePage> allpages = await VocabDatabase.instance.getAllPages(widget.book.id);
-    setState(() {
-      pages = allpages;
-    });
+    try{
+      setState(() {
+        pages = allpages;
+      });
+    }catch(e){}
   }
   @override
   void initState(){
