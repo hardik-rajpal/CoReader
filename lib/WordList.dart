@@ -5,18 +5,25 @@ import 'package:CoReader/main.dart';
 import 'package:CoReader/quote.dart';
 import 'package:flutter/material.dart';
 import 'package:http/http.dart';
-class MessageBar extends StatelessWidget {
-  final _wordController = TextEditingController();
+class MessageBar extends StatefulWidget {
   final Color color;
   final Function onSubmit;
   MessageBar({required this.color, required this.onSubmit}){
 
   }
+
+  @override
+  State<MessageBar> createState() => _MessageBarState();
+}
+
+class _MessageBarState extends State<MessageBar> {
+  final _wordController = TextEditingController();
+
   @override
   Widget build(BuildContext context) {
     return DecoratedBox(
       decoration: BoxDecoration(
-        color: this.color,
+        color: this.widget.color,
       ),
       child: Padding(
         padding: const EdgeInsets.fromLTRB(8.0, 0, 8.0, 0),
@@ -26,7 +33,7 @@ class MessageBar extends StatelessWidget {
               flex: 10,
               child: TextField(
                 controller: _wordController,
-                onSubmitted: (wordstr){onSubmit(wordstr);_wordController.clear();},
+                onSubmitted: (wordstr){widget.onSubmit(wordstr);_wordController.clear();},
                 decoration: InputDecoration(
                     isDense: true,
                     contentPadding: EdgeInsets.all(10),
@@ -44,9 +51,9 @@ class MessageBar extends StatelessWidget {
               flex: 1,
               child: IconButton(
                   color:Colors.black,
-                  icon: Icon(Icons.send, color: (Constants.getVofHSV(this.color)>Constants.ValueThres)?Colors.black:Colors.white,),
+                  icon: Icon(Icons.send, color: (Constants.getVofHSV(this.widget.color)>Constants.ValueThres)?Colors.black:Colors.white,),
                   onPressed: () {
-                    onSubmit(_wordController.text);
+                    widget.onSubmit(_wordController.text);
                     _wordController.clear();
                   }
               ),
@@ -113,7 +120,9 @@ class WordList extends StatefulWidget{
 }
 class _WordListState extends State<WordList> {
   List<Word> words = [];
+  bool disposed = false;
   void refreshWords()async{
+    if(disposed||(!mounted)){return;}
     List<Word> allwords = await VocabDatabase.instance.getAllWords(widget.book.id);
     setState(() {
       words = allwords;
@@ -127,6 +136,12 @@ class _WordListState extends State<WordList> {
     });
   }
   @override
+  void dispose() {
+    super.dispose();
+    disposed = true;
+  }
+
+  @override
   Widget build(BuildContext context) {
     refreshWords();
     return Container(
@@ -137,7 +152,10 @@ class _WordListState extends State<WordList> {
               itemCount: words.length,
               itemBuilder: (context, index){
                 var word = words[index];
-                return WordCard(word: word,color: widget.color, archived:widget.book.archived,refresher:refreshWords);
+                return WordCard(word: word,color: widget.color, archived:widget.book.archived,refresher:() {
+
+                  refreshWords();
+                });
               },
 
             ):Center(

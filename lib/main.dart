@@ -35,6 +35,7 @@ class MyHttpOverrides extends HttpOverrides{
       ..badCertificateCallback = (X509Certificate cert, String host, int port)=> true;
   }
 }
+//TODO: fix messagebar bug in phone
 // TODO: enable number+abbreviated (21LF21C)
 //TODO: Add notes widget and toggle button
 //TODO: add info/about page with sidenavbar
