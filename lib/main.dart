@@ -1,7 +1,11 @@
 import 'dart:io';
 import 'dart:math';
+import 'package:CoReader/About.dart';
+import 'package:CoReader/Archive.dart';
+import 'package:CoReader/DashBoard.dart';
 import 'package:CoReader/WordList.dart';
 import 'package:cached_network_image/cached_network_image.dart';
+import 'package:flutter/cupertino.dart';
 import 'package:flutter/material.dart';
 import 'package:CoReader/Vocabs.dart';
 import 'quote.dart';
@@ -13,10 +17,46 @@ class Constants{
   static double ValueThres = 95;
   static String glossaryState = 'Glossary';
   static String notebookState = 'Notebook';
+  static const int dashboard = 0;
+  static const int archive = 1;
+  static const int about = 2;
   static double getVofHSV(Color color){
     int r, g, b;
     r = color.red; g = color.green; b = color.blue;
     return 100*(max(r, max(g, b)))/255.0;
+  }
+  static Future<Book> getCoverPage(Book book)async{
+    var client = Client();
+    String title = book.name.split(' ').join('+');
+    // List<String> chars = title.characters.toList();
+    if(title.toUpperCase().compareTo(title)==0){
+
+      title = title.characters.toList().join('+');
+    }
+    final String url = 'https://book-cover-api.herokuapp.com/getBookCover?bookTitle=${title}';
+    try{
+      var response = await client.get(Uri.parse(url));
+      Map<String, dynamic> data = jsonDecode(response.body);
+      if (data['status'] == 'success') {
+        book.cover = data['bookCoverUrl'];
+      } else {
+        book.cover = 'assets/covers/default.jpg';
+      }
+    }
+    catch(e){
+      book.cover = 'assets/covers/default.jpg';
+    }
+    return book;
+  }
+  static dynamic getImageWidget(Book book){
+    if(book.cover.startsWith('http')){
+      return CachedNetworkImageProvider(
+        book.cover,
+      );
+    }
+    else{
+      return AssetImage(book.cover);
+    }
   }
 }
 void main(){
@@ -147,7 +187,7 @@ class _MainContentState extends State<MainContent> {
           child: Container(
               decoration: BoxDecoration(
                 image: DecorationImage(
-                    image:  _HomePageState.getImageWidget(activeVocab.book),
+                    image:  Constants.getImageWidget(activeVocab.book),
                     fit: BoxFit.fill,
                     opacity: 0.3
                 ),
@@ -446,9 +486,6 @@ class HomePage extends StatefulWidget {
 }
 class _HomePageState extends State<HomePage> with TickerProviderStateMixin{
   List<Vocab> vocabs = [];
-  bool firstRefreshDone = false;
-  String otherState = 'Notebook';//can be 'Glossary'
-  String currentState = 'Glossary';//can be 'Notebook'
   String coverPageDialogUrl = 'assets/covers/default.jpg';
   List<Vocab> archivedVocabs = [];
   List<NotePage> pages = [];
@@ -456,6 +493,7 @@ class _HomePageState extends State<HomePage> with TickerProviderStateMixin{
   int currentIndex = 0;
   TextEditingController _bookSizeController = TextEditingController();
   TextEditingController _bookController = TextEditingController();
+  int currentSection = Constants.dashboard;
   void refreshWords() async {
     int tabindex = _tabController.index;
     List<Book> allbooks = await VocabDatabase.instance.getAllBooks();
@@ -471,8 +509,8 @@ class _HomePageState extends State<HomePage> with TickerProviderStateMixin{
     for(int i=0;i<openBooks.length;i++){
       setState(() {
         vocabs.add(Vocab(
-          allwords.where((element) => element.bookId==openBooks[i].id).toList().reversed.toList(),
-          openBooks[i]
+            allwords.where((element) => element.bookId==openBooks[i].id).toList().reversed.toList(),
+            openBooks[i]
         ));
       });
     }
@@ -480,79 +518,27 @@ class _HomePageState extends State<HomePage> with TickerProviderStateMixin{
       print(archivedBooks.length);
       setState(() {
         archivedVocabs.add(Vocab(
-          allwords.where((element) => element.bookId==archivedBooks[i].id).toList().reversed.toList(),
-          archivedBooks[i]));
+            allwords.where((element) => element.bookId==archivedBooks[i].id).toList().reversed.toList(),
+            archivedBooks[i]));
       });
     }
     _tabController = TabController(length: vocabs.length, vsync: this);
-    _tabController.addListener(_handleTabSelection);
+    // _tabController.addListener(_handleTabSelection);
     if(_tabController.length>0){
       _tabController.animateTo(min(tabindex, _tabController.length-1), duration: Duration());
     }
     setState(() {
       vocabs = vocabs.reversed.toList();
-      firstRefreshDone = true;
     });
   }
 
-  _handleTabSelection(){
-    setState(() {
-      currentIndex = _tabController.index;
-    });
-  }
-  Future<Book> getCoverPage(Book book)async{
-    var client = Client();
-    String title = book.name.split(' ').join('+');
-    // List<String> chars = title.characters.toList();
-    if(title.toUpperCase().compareTo(title)==0){
 
-      title = title.characters.toList().join('+');
-    }
-    final String url = 'https://book-cover-api.herokuapp.com/getBookCover?bookTitle=${title}';
-    try{
-      var response = await client.get(Uri.parse(url));
-      Map<String, dynamic> data = jsonDecode(response.body);
-      if (data['status'] == 'success') {
-        book.cover = data['bookCoverUrl'];
-      } else {
-        book.cover = 'assets/covers/default.jpg';
-      }
-    }
-    catch(e){
-      book.cover = 'assets/covers/default.jpg';
-    }
-    return book;
-  }
-  static dynamic getImageWidget(Book book){
-    if(book.cover.startsWith('http')){
-      return CachedNetworkImageProvider(
-        book.cover,
-      );
-    }
-    else{
-      return AssetImage(book.cover);
-    }
-  }
-  void addBookToVocabs(Book book){
-    List<Vocab> temp = vocabs.reversed.toList();
-    temp.add(Vocab([], book));
-    setState(() {
-      currentIndex = _tabController.index;
-      vocabs = temp.reversed.toList();
-      _tabController = TabController(length: vocabs.length, vsync: this);
-      _tabController.addListener(_handleTabSelection);
-      // if(_tabController.length>0){
-      //   _tabController.animateTo(currentIndex, duration: Duration());
-      // }
-
-    });
-  }
   @override
   void initState(){
     super.initState();
     _tabController = TabController(length: vocabs.length, vsync: this);
-    _tabController.addListener(_handleTabSelection);
-    refreshWords();
+    // _tabController.addListener(_handleTabSelection);
+    // refreshWords();
 
   }
   @override
@@ -562,207 +548,127 @@ class _HomePageState extends State<HomePage> with TickerProviderStateMixin{
   }
   @override
   Widget build(BuildContext context) {
+    var page;
+    switch(currentSection){
+      case (Constants.dashboard):
+        page = Dashboard(
+          vocabs: vocabs,
+        );
+        break;
+      case (Constants.archive):
+        page = ArchivePage(
+          vocabs: archivedVocabs,
+          refresher: refreshWords,
+        );
+        break;
+      case (Constants.about):
+        page = AboutPage();
+        break;
+      default:
+        page = Dashboard(vocabs: vocabs,);
+        break;
+    }
+
+
     return Scaffold(
       backgroundColor: Colors.white,
       appBar: AppBar(
         title: Text('CoReader'),
         centerTitle: false,
         actions: [
-          IconButton(onPressed: (){
-            showDialog(
-              context: context,
-              builder: (BuildContext context){
-                _bookSizeController.clear();_bookController.clear();
-                return AlertDialog(
-                  title: Text("New Book"),
-                  content: Column(
-                    children: [
-                      TextField(
-                        autofocus: true,
-                        controller: _bookController,
-                        decoration: InputDecoration(
-                          hintText: 'Book Title',
-                        ),
-                      ),
-                      TextField(
-                        controller: _bookSizeController,
-                        decoration: InputDecoration(
-                          hintText: 'Number of Pages',
-                        ),
-                        keyboardType: TextInputType.number,
-                      ),
-                    ],
-                  ),
-                  actions: [
-                    SaveButton(onSave: ()async{
-                      int numpages=1;
-                      try{
-                        numpages = int.parse(_bookSizeController.text);
-                      }
-                      catch(e){
-                        return;
-                      }
-                      Book book = new Book(-1, _bookController.text, false, Colors.deepOrange.value, "assets/covers/default.jpg", 1, numpages);
-                      _bookController.clear();_bookSizeController.clear();
-                      Navigator.of(context).pop();
-                      ScaffoldMessenger.of(context).showSnackBar(SnackBar(
-                        content: Text("Getting cover page. Please wait..."),
-                      ));
-                      book = await getCoverPage(book);
-                      book = await VocabDatabase.instance.create(book);
-                      addBookToVocabs(book);
-                    }, altText: '')
-                  ],
-                );
-              },
-            );
-          },
-              icon: Icon(Icons.add)),
-          IconButton(
-            icon: Icon(Icons.archive),
-            onPressed: (){
-              Navigator.of(context).push(
-                MaterialPageRoute(builder: (context)=>ArchivePage(data: archivedVocabs,refresher: this.refreshWords,))
-              );
-            },
-
-          )
+          // IconButton(
+          //   icon: Icon(Icons.archive),
+          //   onPressed: (){
+          //     Navigator.of(context).push(
+          //       MaterialPageRoute(builder: (context)=>ArchivePage(data: archivedVocabs,refresher: this.refreshWords,))
+          //     );
+          //   },
+          //
+          // )
         ],
-        bottom: TabBar(
-          isScrollable: true,
-
-          controller: _tabController,
-          tabs: vocabs.map((s){
-
-            return GestureDetector(
-            onLongPress: (){
-              showDialog(context: context, builder: (BuildContext context){
-                _bookController.text = s.book.name;
-                _bookSizeController.text = s.book.size.toString();
-                return AlertDialog(
-                  title: Text("Edit Book"),
-                  content: SingleChildScrollView(
-                    scrollDirection: Axis.vertical,
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        Text('Name: ',),
-                        TextField(
-
-                          controller: _bookController,
-                        ),
-                        SizedBox.fromSize(size: Size.fromHeight(10),),
-                        Text('Number of Pages:'),
-                        TextField(
-                          controller: _bookSizeController,
-                          keyboardType: TextInputType.number,
-                        ),
-                        ColorPicker(
-                          paletteType: PaletteType.hueWheel,
-                          enableAlpha: false,
-                          pickerColor: Color(s.book.color),
-                          onColorChanged: (Color color){
-                            setState(() {
-                              s.book.color = color.value;
-                            });
-                          },
+      ),
+      body: page,
+      drawer:Drawer(
+        child: Container(
+          child: Column(
+            children: [
+              Container(
+                color: Colors.blueAccent,
+                width: double.infinity,
+                height: 200,
+                padding: EdgeInsets.only(top: 20),
+                child: Column(
+                  mainAxisAlignment: MainAxisAlignment.start,
+                  children: [
+                    Container(
+                      margin: EdgeInsets.only(bottom: 10),
+                      height: 70,
+                      decoration: BoxDecoration(
+                        shape: BoxShape.rectangle,
+                        image: DecorationImage(
+                          image: AssetImage('icon/icon.png')
                         )
-                      ],
-                    ),
-                  ),
-                  actions: [
-                    DeleteButton(onDelete: ()async{
-                      await VocabDatabase.instance.deleteBook(s.book.id);
-                      refreshWords();
-                      _bookController.clear();
-                      Navigator.of(context).pop();
-                    }),
-                    ElevatedButton.icon(
-                      style: ButtonStyle(
-                        backgroundColor: MaterialStateProperty.all(Colors.yellow[800]),
                       ),
-                      onPressed: ()async{
-                        setState(() {
-                          s.book.archived = true;
-                        });
-                        _bookController.clear();
-                        await VocabDatabase.instance.updateBook(s.book);
-                        Navigator.of(context).pop();
-                        refreshWords();
-                      },
-                      icon: Icon(Icons.archive),
-                      label: Text("Archive"),
                     ),
-                    SaveButton(altText: '',onSave: ()async{
-                      int size = 1;
-                      try{
-                        size = int.parse(_bookSizeController.text);
-                      }
-                      catch(e){
-                        return;
-                      }
-                      Navigator.of(context).pop();
-                      if(s.book.name!=_bookController.text){
-                        s.book.name = _bookController.text;
-                        ScaffoldMessenger.of(context).showSnackBar(SnackBar(
-                          content: Text("Updating cover page. Please wait..."),
-                        ));
-                        s.book = await getCoverPage(s.book);
-                      }
-                      setState(() {
-                        s.book.size =  size;
-                      });
+                    Text(
+                        'CoReader',
+                        style: TextStyle(
+                          color: Colors.white,
+                          fontSize: 30,
+                          fontWeight: FontWeight.bold,
 
-                      _bookController.clear();_bookSizeController.clear();
-                      await VocabDatabase.instance.updateBook(s.book);
-                    })
+                        )
+                    ),
+                    Text(
+                      'Your reading companion.',
+                      style: TextStyle(
+                        color: Colors.white,
+                        fontSize: 15
+                      ),
+                    )
                   ],
-                );
-              });
-              print("long press");
-            },
-            child:ElevatedButton(
-              child:Text(
-                s.book.name,
-                style: TextStyle(
-                  color: (Constants.getVofHSV(Color(s.book.color))>Constants.ValueThres)?Colors.black:Colors.white
                 ),
-              ),
-              onPressed: (){
-                _tabController.animateTo(vocabs.indexOf(s));
-              },
-              style: ButtonStyle(
-                backgroundColor: MaterialStateProperty.all(Color(s.book.color))
-              ),
-            )
-          );
-          }).toList(),
-        ),
 
-      ),
-      body: Column(
-        children: [
-          Expanded(
-            flex: 10,
-            child:(_tabController.length>0)?TabBarView(
-                controller: _tabController,
-                children: vocabs.map((e){
-                  return MainContent(activeVocab: e,);
-                }
-              ).toList(),
-            ):Center(
-              child: Text(
-                (firstRefreshDone)?'No active books so far. Tap the + icon at the top to add a book.':'Loading active books...',
-              style: TextStyle(
-                color: Colors.grey[700],
-                fontSize: 20.0,
-                fontWeight: FontWeight.bold,
               ),
-              textAlign: TextAlign.center,),
-            )
+              Container(
+                padding: EdgeInsets.only(top: 15),
+                child: Column(
+                  children: [
+                    menuItem(
+                      iconData: Icons.dashboard_outlined,
+                      text: 'Dashboard',
+                      onTap: (){
+                        setState(() {
+                          currentSection = Constants.dashboard;
+                        });
+                      },
+                    ),
+                    menuItem(
+                        iconData: Icons.archive,
+                        text: 'Archive',
+                        onTap: (){
+                          setState(() {
+                            currentSection = Constants.archive;
+                          });
+                        },
+                    ),
+                    menuItem(
+                        iconData: Icons.info_outline,
+                        text: 'About',
+                        onTap: (){
+                          setState(() {
+                            currentSection = Constants.about;
+                          });
+                        }
+                    )
+                  ],
+                )
+              )
+
+            ],
           ),
-        ],
-      ),
+        ),
+      )
     );
   }
 
@@ -785,97 +691,47 @@ class _HomePageState extends State<HomePage> with TickerProviderStateMixin{
     return color;
   }
 }
-class ArchivePage extends StatefulWidget {
-  final dynamic data;
-  final dynamic refresher;
-  const ArchivePage({Key? key, this.data, this.refresher}) : super(key: key);
 
-  @override
-  State<ArchivePage> createState() => _ArchivePageState();
-}
-class _ArchivePageState extends State<ArchivePage> {
+class menuItem extends StatelessWidget {
+  final IconData iconData;
+  final String text;
+  final Function onTap;
+  menuItem({required this.iconData, required this.text, required this.onTap});
+
   @override
   Widget build(BuildContext context) {
-    List<Vocab> vocabs = widget.data;
-    return Scaffold(
-      appBar: AppBar(
-        title: Text('Archive'),
-      ),
-      body: (vocabs.length>0)?GridView.count(
-        crossAxisSpacing: 10.0,
-        mainAxisSpacing: 10.0,
-        crossAxisCount: 4,
-        children: vocabs.map((vocab){
-          return GestureDetector(
-            child: GridTile(
-              child: ElevatedButton(
-                onLongPress: (){
-                  showDialog(context: context, builder: (context){
-                    return AlertDialog(
-                      title: Text(vocab.book.name),
-                      actions: [
-                        DeleteButton(onDelete: ()async{
-                          await VocabDatabase.instance.deleteBook(vocab.book.id);
-                          // refreshWords();
-                          Navigator.of(context).pop();
-                          setState(() {
-                            vocabs.remove(vocab);
-                          });
-
-                        }),
-                        ElevatedButton.icon(
-                          style: ButtonStyle(
-                            backgroundColor: MaterialStateProperty.all(Colors.pink[800]),
-                          ),
-                          onPressed: ()async{
-                            // setState(() {
-                              vocab.book.archived = false;
-
-                            await VocabDatabase.instance.updateBook(vocab.book);
-                            Navigator.of(context).pop();
-                            widget.refresher();
-                            setState(() {
-                              vocabs.remove(vocab);
-
-                            });
-                            },
-                          icon: Icon(Icons.unarchive),
-                          label: Text("UnArchive"),
-                        ),
-                      ],
-                    );
-                  });
-                },
-                onPressed: (){
-                  Navigator.of(context).push(
-                      MaterialPageRoute(builder: (context)=>ArchivedDataPage(vocab: vocab,))
-                  );
-                },
-                  style: ButtonStyle(
-                    backgroundColor: MaterialStateProperty.all(Color(vocab.book.color)),
-                  ),
-                child: (vocab.book.cover!='assets/cover/default.jpg')?Image(
-                  image: _HomePageState.getImageWidget(vocab.book),
-                ):Text(vocab.book.name),
+    return Material(
+      child: InkWell(
+        onTap: () {
+          Navigator.of(context).pop();
+          onTap();
+        },
+        child: Padding(
+          padding: EdgeInsets.all(15.0),
+          child: Row(
+            children: [
+              Expanded(
+                child: Icon(
+                  iconData,
+                  color: Colors.black
+                ),
               ),
-            ),
-          );
-        }).toList(),
-      ):Center(
-          child: Text(
-            'No books archived yet. Your archived books will appear here. (Long Press the tab to archive the book.)',
-            style: TextStyle(
-              color: Colors.grey[700],
-              fontSize: 20.0,
-              fontWeight: FontWeight.bold,
-
-            ),
-            textAlign: TextAlign.center,
-          ),
-      ),
+              Expanded(
+                child: Text(
+                  text,
+                  style: TextStyle(
+                    fontSize: 20
+                  ),
+                ),
+              )
+            ]
+          )
+        ),
+      )
     );
   }
 }
+
 class ArchivedDataPage extends StatelessWidget {
   final dynamic vocab;
   ArchivedDataPage({this.vocab});

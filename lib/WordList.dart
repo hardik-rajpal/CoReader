@@ -166,7 +166,7 @@ class _WordListState extends State<WordList> {
               child: Padding(
                 padding: const EdgeInsets.all(16),
                 child: Text(
-                  'No words added to glossary.\n Add words using the message bar below.',
+                  widget.book.archived?'The Glossary is empty':'No words added to glossary.\n Add words using the message bar below.',
                   textAlign: TextAlign.center,
                   style: TextStyle(
                     color: Colors.grey[700],
