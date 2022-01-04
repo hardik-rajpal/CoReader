@@ -193,7 +193,12 @@ class _DashboardState extends State<Dashboard> with TickerProviderStateMixin {
                 ),
               ),
             ),
-            IconButton(onPressed: (){
+            ElevatedButton(
+              style: ButtonStyle(
+                shape: MaterialStateProperty.all(CircleBorder())
+              ),
+              child: Icon(Icons.add),
+                onPressed: (){
               showDialog(
                 context: context,
                 builder: (BuildContext context){
@@ -242,7 +247,7 @@ class _DashboardState extends State<Dashboard> with TickerProviderStateMixin {
                 },
               );
             },
-                icon: Icon(Icons.add)),
+          ),
 
           ],
         ),

@@ -4,10 +4,11 @@ import 'package:flutter/material.dart';
 class AboutPage extends StatelessWidget {
   AboutPage();
   String mainContent = '''This app is intended essentially as a handy glossary and notebook to be used while reading books.
-It comes with an inbuilt connection to a dictionary, a note-making interface, a virtual bookmark and a sick UI.
-For suggestions, queries, bug-reports (if it bothers you enough) or a cuppatea:
 
-Email: hardikraj08@gmail.com''';
+It comes with an inbuilt connection to a dictionary, a note-making interface, a virtual bookmark and a sick UI.
+
+For suggestions, queries, bug-reports (if it bothers you enough) or a cuppatea:
+''';
   @override
   Widget build(BuildContext context) {
     return Column(
@@ -15,13 +16,22 @@ Email: hardikraj08@gmail.com''';
               Expanded(
                 child: Padding(
                   padding: const EdgeInsets.fromLTRB(8,20,8,8.0),
-                  child: Text(
-                    mainContent,
-                    textAlign: TextAlign.justify,
-                    style: TextStyle(
-
-                      fontSize: 20,
-                    ),
+                  child: Column(
+                    children: [
+                      Text(
+                        mainContent,
+                        textAlign: TextAlign.justify,
+                        style: TextStyle(
+                          fontSize: 20,
+                        ),
+                      ),
+                      Text(
+                        'Email: hardikraj08@gmail.com',
+                        style: TextStyle(
+                            fontSize: 20
+                        ),
+                      ),
+                    ],
                   ),
                 ),
               ),

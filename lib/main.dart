@@ -11,10 +11,8 @@ import 'package:CoReader/Vocabs.dart';
 import 'quote.dart';
 import 'package:http/http.dart';
 import 'dart:convert';
-import 'package:flutter_colorpicker/flutter_colorpicker.dart';
-
 class Constants{
-  static double ValueThres = 95;
+  static double ValueThres = 200;
   static String glossaryState = 'Glossary';
   static String notebookState = 'Notebook';
   static const int dashboard = 0;
@@ -23,7 +21,7 @@ class Constants{
   static double getVofHSV(Color color){
     int r, g, b;
     r = color.red; g = color.green; b = color.blue;
-    return 100*(max(r, max(g, b)))/255.0;
+    return 0.299*r + 0.587*b + 0.114*b;
   }
   static Future<Book> getCoverPage(Book book)async{
     var client = Client();
@@ -75,10 +73,7 @@ class MyHttpOverrides extends HttpOverrides{
       ..badCertificateCallback = (X509Certificate cert, String host, int port)=> true;
   }
 }
-//TODO: fix messagebar bug in phone
 // TODO: enable number+abbreviated (21LF21C)
-//TODO: Add notes widget and toggle button
-//TODO: add info/about page with sidenavbar
 //TODO: add option for background download of defs
 class DeleteButton extends StatelessWidget {
   final Function onDelete;
