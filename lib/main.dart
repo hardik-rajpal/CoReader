@@ -1,5 +1,6 @@
 import 'dart:io';
 import 'dart:math';
+import 'package:wakelock/wakelock.dart';
 import 'package:CoReader/About.dart';
 import 'package:CoReader/Archive.dart';
 import 'package:CoReader/DashBoard.dart';
@@ -56,6 +57,50 @@ class Constants{
       return AssetImage(book.cover);
     }
   }
+  static Future<bool> isConnectedToWeb()async{
+    try {
+      final result = await InternetAddress.lookup('example.com');
+      if (result.isNotEmpty && result[0].rawAddress.isNotEmpty) {
+        return true;
+      }
+      else{
+        return false;
+      }
+    } on SocketException catch (_) {
+      return false;
+    }
+  }
+  static void Toast(String text, BuildContext context){
+    ScaffoldMessenger.of(context).showSnackBar(SnackBar(
+      content: Text(text),
+    ));
+  }
+  static Future<String> getResponseBody(Word word)async{
+    var client = Client();
+    var response = await client.get(Uri.parse('https://api.dictionaryapi.dev/api/v2/entries/en/'+word.word));
+    return response.body;
+  }
+  static Future<String> getDefinitionTextFromWeb(Word word)async{
+    String body = await getResponseBody(word);
+    String definition = "";
+    try{
+      dynamic data = jsonDecode(body);
+      definition = data.map((d){
+        return d['word']+': \n'+d["meanings"].map((m){
+          int numdef = 0;
+          return m["definitions"].map((def){
+            numdef+=1;
+            return '${numdef}. ['+ m["partOfSpeech"] +"] "+ def["definition"];
+          }).toList().join("\n");
+        }).toList().join("\n\n");
+      }).toList().join("\n");
+    }
+    catch(e){
+      // word = wordobj.word;
+      definition = "We couldn't get that word. Sorry.";
+    }
+    return definition;
+  }
 }
 void main(){
   HttpOverrides.global = MyHttpOverrides();
@@ -74,7 +119,8 @@ class MyHttpOverrides extends HttpOverrides{
   }
 }
 // TODO: enable number+abbreviated (21LF21C)
-//TODO: add option for background download of defs
+//TODO: show background download of defs in notif. bar.
+//TODO: add export as json and import as json.
 class DeleteButton extends StatelessWidget {
   final Function onDelete;
   DeleteButton({required this.onDelete});
@@ -300,7 +346,7 @@ class _NotesGridState extends State<NotesGrid> {
     List<NotePage> allpages = await VocabDatabase.instance.getAllPages(widget.book.id);
     try{
       setState(() {
-        pages = allpages;
+        pages = allpages.reversed.toList();
       });
     }catch(e){}
   }
@@ -317,7 +363,14 @@ class _NotesGridState extends State<NotesGrid> {
           style: ButtonStyle(
               backgroundColor: MaterialStateProperty.all(Color(widget.book.color))
           ),
-          child: Text(e.title, style: TextStyle(color: (Constants.getVofHSV(Color(widget.book.color))>Constants.ValueThres)?Colors.black:Colors.white),),
+          child: Center(
+            child: Text(
+              e.title,
+              textAlign: TextAlign.center,
+              style: TextStyle(
+                  color: (Constants.getVofHSV(Color(widget.book.color))>Constants.ValueThres)?Colors.black:Colors.white),
+            ),
+          ),
           onPressed: (){
             Navigator.of(context).push(MaterialPageRoute(builder: (context)=>NotePageEditable(page: e, book: widget.book, refresher: refreshPages,)));
           },
@@ -345,7 +398,6 @@ class _NotesGridState extends State<NotesGrid> {
                     });
                     await VocabDatabase.instance.updatePage(e);
                     Navigator.of(context).pop();
-
                   }, altText: 'Save Title')
                 ],
               );
@@ -485,7 +537,7 @@ class _HomePageState extends State<HomePage> with TickerProviderStateMixin{
   List<Vocab> archivedVocabs = [];
   List<NotePage> pages = [];
   late TabController _tabController;
-  int currentIndex = 0;
+  int currentIndex = 0;bool wakelockOn = false;
   TextEditingController _bookSizeController = TextEditingController();
   TextEditingController _bookController = TextEditingController();
   int currentSection = Constants.dashboard;
@@ -525,6 +577,10 @@ class _HomePageState extends State<HomePage> with TickerProviderStateMixin{
     setState(() {
       vocabs = vocabs.reversed.toList();
     });
+    bool temp = await Wakelock.enabled;
+    setState((){
+      wakelockOn = temp;
+    });
   }
 
 
@@ -543,6 +599,7 @@ class _HomePageState extends State<HomePage> with TickerProviderStateMixin{
   }
   @override
   Widget build(BuildContext context) {
+
     var page;
     switch(currentSection){
       case (Constants.dashboard):
@@ -566,20 +623,53 @@ class _HomePageState extends State<HomePage> with TickerProviderStateMixin{
 
 
     return Scaffold(
+
       backgroundColor: Colors.white,
       appBar: AppBar(
         title: Text('CoReader'),
         centerTitle: false,
         actions: [
-          // IconButton(
-          //   icon: Icon(Icons.archive),
-          //   onPressed: (){
-          //     Navigator.of(context).push(
-          //       MaterialPageRoute(builder: (context)=>ArchivePage(data: archivedVocabs,refresher: this.refreshWords,))
-          //     );
-          //   },
-          //
-          // )
+          IconButton(
+            icon: Icon(
+              Icons.download_rounded,
+            ),
+            onPressed: ()async{
+              if(await Constants.isConnectedToWeb()){
+                Constants.Toast('Downloading definitions for the glossary.', context);
+                List<Word> allwords = await VocabDatabase.instance.getAllWords(-1);
+                allwords.forEach((element)async{
+                  if(element.def.length==0){
+                    element.def = await Constants.getDefinitionTextFromWeb(element);
+                    VocabDatabase.instance.updateWord(element);
+                  }
+                });
+              }
+              else{
+                Constants.Toast('Not connected to internet.😟', context);
+              }
+            },
+          ),
+          IconButton(
+            icon: Icon(
+              (wakelockOn)?Icons.timer:Icons.timer_off,
+            ),
+            onPressed: ()async{
+              if(await Wakelock.enabled){
+                await Wakelock.disable();
+                setState(() {
+                  wakelockOn = false;
+                });
+                Constants.Toast('Screen timeout enabled.', context);
+              }
+              else{
+                await Wakelock.enable();
+                setState(() {
+                  wakelockOn = true;
+                });
+                Constants.Toast('Screen timeout disabled.', context);
+              }
+            },
+          )
         ],
       ),
       body: page,
@@ -595,6 +685,7 @@ class _HomePageState extends State<HomePage> with TickerProviderStateMixin{
                 child: Column(
                   mainAxisAlignment: MainAxisAlignment.start,
                   children: [
+                    SizedBox(height: 30,),
                     Container(
                       margin: EdgeInsets.only(bottom: 10),
                       height: 70,
@@ -615,7 +706,7 @@ class _HomePageState extends State<HomePage> with TickerProviderStateMixin{
                         )
                     ),
                     Text(
-                      'Your reading companion.',
+                      'Your reading companion',
                       style: TextStyle(
                         color: Colors.white,
                         fontSize: 15
@@ -705,20 +796,19 @@ class menuItem extends StatelessWidget {
           padding: EdgeInsets.all(15.0),
           child: Row(
             children: [
-              Expanded(
+              Padding(
+                padding: const EdgeInsets.only(left: 8, right: 8),
                 child: Icon(
-                  iconData,
-                  color: Colors.black
+                    iconData,
+                    color: Colors.black
                 ),
               ),
-              Expanded(
-                child: Text(
+            Text(
                   text,
                   style: TextStyle(
                     fontSize: 20
                   ),
-                ),
-              )
+                )
             ]
           )
         ),

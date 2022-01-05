@@ -90,10 +90,8 @@ class WordCard extends StatelessWidget {
         ),
         onPressed: ()async{
           if(word.def==""){
-            var client = Client();
-            var response = await client.get(Uri.parse('https://api.dictionaryapi.dev/api/v2/entries/en/'+word.word));
-            print(response.body);
-            DefinitionBox(response.body, context, word, this.refresher, this.archived);
+            String body = await Constants.getResponseBody(word);
+            DefinitionBox(body, context, word, this.refresher, this.archived);
           }
           else{
             DefinitionBox("", context, word, this.refresher, this.archived);
@@ -127,7 +125,8 @@ class _WordListState extends State<WordList> {
     List<Word> allwords = await VocabDatabase.instance.getAllWords(widget.book.id);
     try{
       setState(() {
-        words = allwords;
+        words = allwords.reversed.toList();
+        words = [...words.where((element) => !element.known).toList(), ...words.where((element) => element.known).toList()];
       });
     }catch(e){}
 
@@ -136,7 +135,8 @@ class _WordListState extends State<WordList> {
   void initState() {
     super.initState();
     setState(() {
-      words = widget.words;
+      words = widget.words.reversed.toList();
+
     });
   }
   @override
@@ -183,7 +183,9 @@ class _WordListState extends State<WordList> {
                 var word = new Word(-1,widget.book.id, wordstr, "", false);
                 word = await VocabDatabase.instance.createWord(word);
                 setState(() {
-                  words.add(word);
+                  var tempwords = words.reversed.toList();
+                  tempwords.add(word);
+                  words = tempwords.reversed.toList();
                 });
               }
           ):Container()
@@ -199,7 +201,6 @@ class DefinitionBox{
     // bool updated = false;
     // word = "";
     if(output!=""){
-
       try{
         dynamic data = jsonDecode(output);
         definition = data.map((d){

@@ -41,6 +41,9 @@ class _ArchivePageState extends State<ArchivePage> {
   }
   @override
   Widget build(BuildContext context) {
+    // setState(() {
+    //   archivedVocabs = widget.vocabs.reversed.toList();
+    // });
     refreshArchivedBooks();
     return (archivedVocabs.length>0)?GridView.count(
         crossAxisSpacing: 10.0,

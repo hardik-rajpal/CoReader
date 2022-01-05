@@ -83,10 +83,12 @@ class _DashboardState extends State<Dashboard> with TickerProviderStateMixin {
           children: [
             Expanded(
               child: Container(
+                color: Colors.grey[100],
                 child: TabBar(
-                  labelColor: Colors.blueAccent,
                   isScrollable: true,
                   controller: _tabController,
+                  padding: EdgeInsets.all(0),
+                  indicatorPadding: EdgeInsets.all(0),
                   tabs: vocabs.map((s){
                     return GestureDetector(
                         onLongPress: (){
