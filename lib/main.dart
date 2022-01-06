@@ -642,7 +642,14 @@ class _HomePageState extends State<HomePage> with TickerProviderStateMixin{
                     element.def = await Constants.getDefinitionTextFromWeb(element);
                     VocabDatabase.instance.updateWord(element);
                   }
+                  if(allwords.where((element) => element.def.length==0).length==0){
+                    Constants.Toast('All definitions downloaded!', context);
+                  }
                 });
+                // while(){
+                //   //show notif?
+                // }
+
               }
               else{
                 Constants.Toast('Not connected to internet.😟', context);
