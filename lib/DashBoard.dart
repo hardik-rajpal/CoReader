@@ -6,7 +6,6 @@ import 'package:CoReader/quote.dart';
 import 'package:flutter/cupertino.dart';
 import 'package:CoReader/main.dart';
 import 'package:flutter/material.dart';
-import 'package:flutter_colorpicker/flutter_colorpicker.dart';
 class Dashboard extends StatefulWidget {
   final List<Vocab> vocabs;
   Dashboard({required this.vocabs});
@@ -77,7 +76,7 @@ class _CreateDialogState extends State<CreateDialog> {
               CoverChecked = true;
             });
               if(!(await Constants.isConnectedToWeb())){
-                Constants.Toast("No connection", context);
+                Constants.Toast("No internet connection", context);
                 return;
               }
               Constants.Toast('Getting cover page', context);
@@ -111,12 +110,175 @@ class _CreateDialogState extends State<CreateDialog> {
   }
 }
 
+class EditDialog extends StatefulWidget {
+  // Function onSave;
+  Vocab activeVocab;
+  Function refresher;
+  EditDialog({required this.refresher, required this.activeVocab});
+
+  @override
+  _EditDialogState createState() => _EditDialogState();
+}
+
+class _EditDialogState extends State<EditDialog> {
+  late Vocab s;
+  TextEditingController _bookController  = TextEditingController();
+  TextEditingController _bookSizeController = TextEditingController();
+  dynamic updateCoverButton;
+  bool titleChanged = false;
+  Color bookColor = Colors.grey;
+  Future<Book> updateCover()async{
+    if(!(await Constants.isConnectedToWeb())){
+      Constants.Toast('No internet connection.', context);
+      return s.book;
+    }
+    Constants.Toast("Updating cover page. Please wait...", context);
+    String cover = await Constants.getCoverPage(_bookController.text);
+    setState(() {
+      bookColor = Color(s.book.color);
+      s.book.cover = cover;
+    });
+    return s.book;
+  }
+  @override
+  void initState() {
+    s = widget.activeVocab;
+    setState(() {
+      _bookController.text = s.book.name;
+      _bookSizeController.text = s.book.size.toString();
+      bookColor = Color(s.book.color);
+      _bookController.addListener(() {
+        setState(() {
+          titleChanged = _bookController.text.compareTo(s.book.name)==0;
+        });
+      });
+    });
+    updateCoverButton = ElevatedButton.icon(
+        onPressed: ()async{
+          await updateCover();
+        },
+        icon: Icon(Icons.network_wifi),
+        label: Text('Get Cover')
+    );
+    super.initState();
+  }
+
+
+  @override
+  Widget build(BuildContext context) {
+    return AlertDialog(
+
+      title: Text("Edit Book"),
+      content: SingleChildScrollView(
+        scrollDirection: Axis.vertical,
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Text('Name: ',),
+            TextField(
+              controller: _bookController,
+            ),
+            SizedBox.fromSize(size: Size.fromHeight(10),),
+            Text('Number of Pages:'),
+            TextField(
+              controller: _bookSizeController,
+              keyboardType: TextInputType.number,
+            ),
+            MinColorPicker(
+              // paletteType: PaletteType.hueWheel,
+              // enableAlpha: false,
+              showValueBar: true,
+              selectedColor: bookColor,
+              onSelect: (Color color){
+                setState(() {
+                  bookColor = color;
+                });
+              },
+            ),
+            Row(
+              mainAxisAlignment: MainAxisAlignment.spaceBetween,
+              children: [
+                Expanded(
+                  flex: 1,
+                  child: Container(
+                    width: 100,
+                    height: 100,
+                    decoration: BoxDecoration(
+                        image: DecorationImage(
+                            image: Constants.getImageWidget(s.book.cover)
+                        )
+                    ),
+                  ),
+                ),
+                Expanded(
+                  flex: 1,
+                  child: updateCoverButton,
+                )
+              ],
+            )
+          ],
+        ),
+      ),
+      actions: [
+        DeleteButton(onDelete: ()async{
+          await VocabDatabase.instance.deleteBook(s.book.id);
+          widget.refresher();
+          _bookController.clear();
+          Navigator.of(context).pop();
+        }),
+        ElevatedButton.icon(
+          style: ButtonStyle(
+            backgroundColor: MaterialStateProperty.all(Colors.yellow[800]),
+          ),
+          onPressed: ()async{
+            setState(() {
+              s.book.archived = true;
+            });
+            _bookController.clear();
+            await VocabDatabase.instance.updateBook(s.book);
+            Navigator.of(context).pop();
+            widget.refresher();
+          },
+          icon: Icon(Icons.archive),
+          label: Text("Archive"),
+        ),
+        SaveButton(altText: '',onSave: ()async{
+          int size = 1;
+          print(_bookController.text + s.book.name);
+          setState(() {
+            titleChanged = !(_bookController.text.compareTo(s.book.name)==0);
+          });
+          if(titleChanged){
+            await updateCover();
+          }
+          print(titleChanged);
+          try{
+            size = int.parse(_bookSizeController.text);
+          }
+          catch(e){
+            return;
+          }
+          Navigator.of(context).pop();
+          setState(() {
+            s.book.name = _bookController.text;
+            s.book.size =  size;
+            s.book.color = bookColor.value;
+          });
+          _bookController.clear();_bookSizeController.clear();
+          print(titleChanged);
+          await VocabDatabase.instance.updateBook(s.book);
+          widget.refresher();
+        })
+      ],
+    );
+  }
+}
+
+
 class _DashboardState extends State<Dashboard> with TickerProviderStateMixin {
   late List<Vocab> vocabs;
   late TabController _tabController;
   bool firstRefreshDone = false;
-  TextEditingController _bookSizeController = TextEditingController();
-  TextEditingController _bookController = TextEditingController();
   void refreshWords() async {
     int tabindex = _tabController.index;
     List<Book> allbooks = await VocabDatabase.instance.getAllBooks();
@@ -190,108 +352,9 @@ class _DashboardState extends State<Dashboard> with TickerProviderStateMixin {
                     return GestureDetector(
                         onLongPress: (){
                           showDialog(context: context, builder: (BuildContext context){
-                            _bookController.text = s.book.name;
-                            _bookSizeController.text = s.book.size.toString();
-                            return AlertDialog(
-                              title: Text("Edit Book"),
-                              content: SingleChildScrollView(
-                                scrollDirection: Axis.vertical,
-                                child: Column(
-                                  crossAxisAlignment: CrossAxisAlignment.start,
-                                  children: [
-                                    Text('Name: ',),
-                                    TextField(
-                                      controller: _bookController,
-                                    ),
-                                    SizedBox.fromSize(size: Size.fromHeight(10),),
-                                    Text('Number of Pages:'),
-                                    TextField(
-                                      controller: _bookSizeController,
-                                      keyboardType: TextInputType.number,
-                                    ),
-                                    MinColorPicker(
-                                      // paletteType: PaletteType.hueWheel,
-                                      // enableAlpha: false,
-                                      showValueBar: false,
-                                      selectedColor: Color(s.book.color),
-                                      onSelect: (Color color){
-                                        setState(() {
-                                          s.book.color = color.value;
-                                        });
-                                      },
-                                    ),
-                                    Row(
-                                      mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                                      children: [
-                                        Container(
-                                          width: 100,
-                                          height: 100,
-                                          decoration: BoxDecoration(
-                                              image: DecorationImage(
-                                                  image: Constants.getImageWidget(s.book.cover)
-                                              )
-                                          ),
-                                        ),
-                                        ElevatedButton.icon(
-                                            onPressed: ()async{
-                                              s.book.name = _bookController.text;
-                                              ScaffoldMessenger.of(context).showSnackBar(SnackBar(
-                                                content: Text("Updating cover page. Please wait..."),
-                                              ));
-                                              String cover = await Constants.getCoverPage(s.book.name);
-                                              setState(() {
-                                                s.book.cover = cover;
-                                              });
-
-                                            },
-                                            icon: Icon(Icons.network_wifi),
-                                            label: Text('Get Cover')
-                                        )
-                                      ],
-                                    )
-                                  ],
-                                ),
-                              ),
-                              actions: [
-                                DeleteButton(onDelete: ()async{
-                                  await VocabDatabase.instance.deleteBook(s.book.id);
-                                  refreshWords();
-                                  _bookController.clear();
-                                  Navigator.of(context).pop();
-                                }),
-                                ElevatedButton.icon(
-                                  style: ButtonStyle(
-                                    backgroundColor: MaterialStateProperty.all(Colors.yellow[800]),
-                                  ),
-                                  onPressed: ()async{
-                                    setState(() {
-                                      s.book.archived = true;
-                                    });
-                                    _bookController.clear();
-                                    await VocabDatabase.instance.updateBook(s.book);
-                                    Navigator.of(context).pop();
-                                    refreshWords();
-                                  },
-                                  icon: Icon(Icons.archive),
-                                  label: Text("Archive"),
-                                ),
-                                SaveButton(altText: '',onSave: ()async{
-                                  int size = 1;
-                                  try{
-                                    size = int.parse(_bookSizeController.text);
-                                  }
-                                  catch(e){
-                                    return;
-                                  }
-                                  Navigator.of(context).pop();
-                                  setState(() {
-                                    s.book.name = _bookController.text;
-                                    s.book.size =  size;
-                                  });
-                                  _bookController.clear();_bookSizeController.clear();
-                                  await VocabDatabase.instance.updateBook(s.book);
-                                })
-                              ],
+                            return EditDialog(
+                              refresher:this.refreshWords,
+                              activeVocab: s,
                             );
                           });
                           print("long press");
