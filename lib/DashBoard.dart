@@ -14,6 +14,102 @@ class Dashboard extends StatefulWidget {
   @override
   _DashboardState createState() => _DashboardState();
 }
+class CreateDialog extends StatefulWidget {
+  Function onAdd;
+  CreateDialog({required this.onAdd});
+  @override
+  _CreateDialogState createState() => _CreateDialogState();
+}
+
+class _CreateDialogState extends State<CreateDialog> {
+  TextEditingController _bookController = TextEditingController();
+  TextEditingController _bookSizeController = TextEditingController();
+  String coverURL = Constants.localBlankPage;
+  bool CoverChecked = false;
+  @override
+  void initState() {
+
+    super.initState();
+  }
+  @override
+  Widget build(BuildContext context) {
+    // _bookController.clear(); _bookSizeController.clear();
+    return AlertDialog(
+      title: Text("New Book"),
+      content: Column(
+        children: [
+          TextField(
+            autofocus: true,
+            controller: _bookController,
+            decoration: InputDecoration(
+              hintText: 'Book Title',
+            ),
+          ),
+          TextField(
+            controller: _bookSizeController,
+            decoration: InputDecoration(
+              hintText: 'Number of Pages',
+            ),
+            keyboardType: TextInputType.number,
+          ),
+          Expanded(
+            child: DecoratedBox(
+              decoration: BoxDecoration(
+                image: DecorationImage(
+                  image: Constants.getImageWidget(coverURL)
+                )
+              ),
+              child: Row(
+                children: [Expanded(
+                  child: Container(),
+                ),]
+              ),
+            ),
+          )
+        ],
+      ),
+      actions: [
+        ElevatedButton.icon(
+          icon: Icon(Icons.network_wifi),
+            label: Text('Get Cover'),
+            onPressed: ()async{
+            setState(() {
+              CoverChecked = true;
+            });
+              if(!(await Constants.isConnectedToWeb())){
+                Constants.Toast("No connection", context);
+                return;
+              }
+              Constants.Toast('Getting cover page', context);
+              String newCoverURL = await Constants.getCoverPage(_bookController.text);
+              setState(() {
+                coverURL = newCoverURL;
+                // print(newCoverURL);
+                // _bookController. = widget.bookTitle;
+                // print(widget.bookTitle);
+                // _bookSizeController.text = widget.numPages.toString();
+              });
+            },
+        ),
+        CoverChecked?SaveButton(onSave: ()async{
+          int numpages=1;
+          try{
+            numpages = int.parse(_bookSizeController.text);
+          }
+          catch(e){
+            return;
+          }
+          Book book = new Book(-1, _bookController.text, false, Colors.deepOrange.value, "assets/covers/default.jpg", 1, numpages);
+          _bookController.clear();_bookSizeController.clear();
+          Navigator.of(context).pop();
+          book.cover = coverURL;
+          book = await VocabDatabase.instance.create(book);
+          widget.onAdd(book);
+        }, altText: ''):Container()
+      ],
+    );
+  }
+}
 
 class _DashboardState extends State<Dashboard> with TickerProviderStateMixin {
   late List<Vocab> vocabs;
@@ -105,7 +201,6 @@ class _DashboardState extends State<Dashboard> with TickerProviderStateMixin {
                                   children: [
                                     Text('Name: ',),
                                     TextField(
-
                                       controller: _bookController,
                                     ),
                                     SizedBox.fromSize(size: Size.fromHeight(10),),
@@ -124,6 +219,35 @@ class _DashboardState extends State<Dashboard> with TickerProviderStateMixin {
                                           s.book.color = color.value;
                                         });
                                       },
+                                    ),
+                                    Row(
+                                      mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                                      children: [
+                                        Container(
+                                          width: 100,
+                                          height: 100,
+                                          decoration: BoxDecoration(
+                                              image: DecorationImage(
+                                                  image: Constants.getImageWidget(s.book.cover)
+                                              )
+                                          ),
+                                        ),
+                                        ElevatedButton.icon(
+                                            onPressed: ()async{
+                                              s.book.name = _bookController.text;
+                                              ScaffoldMessenger.of(context).showSnackBar(SnackBar(
+                                                content: Text("Updating cover page. Please wait..."),
+                                              ));
+                                              String cover = await Constants.getCoverPage(s.book.name);
+                                              setState(() {
+                                                s.book.cover = cover;
+                                              });
+
+                                            },
+                                            icon: Icon(Icons.network_wifi),
+                                            label: Text('Get Cover')
+                                        )
+                                      ],
                                     )
                                   ],
                                 ),
@@ -160,14 +284,8 @@ class _DashboardState extends State<Dashboard> with TickerProviderStateMixin {
                                     return;
                                   }
                                   Navigator.of(context).pop();
-                                  if(s.book.name!=_bookController.text){
-                                    s.book.name = _bookController.text;
-                                    ScaffoldMessenger.of(context).showSnackBar(SnackBar(
-                                      content: Text("Updating cover page. Please wait..."),
-                                    ));
-                                    s.book = await Constants.getCoverPage(s.book);
-                                  }
                                   setState(() {
+                                    s.book.name = _bookController.text;
                                     s.book.size =  size;
                                   });
                                   _bookController.clear();_bookSizeController.clear();
@@ -206,47 +324,11 @@ class _DashboardState extends State<Dashboard> with TickerProviderStateMixin {
               showDialog(
                 context: context,
                 builder: (BuildContext context){
-                  _bookSizeController.clear();_bookController.clear();
-                  return AlertDialog(
-                    title: Text("New Book"),
-                    content: Column(
-                      children: [
-                        TextField(
-                          autofocus: true,
-                          controller: _bookController,
-                          decoration: InputDecoration(
-                            hintText: 'Book Title',
-                          ),
-                        ),
-                        TextField(
-                          controller: _bookSizeController,
-                          decoration: InputDecoration(
-                            hintText: 'Number of Pages',
-                          ),
-                          keyboardType: TextInputType.number,
-                        ),
-                      ],
-                    ),
-                    actions: [
-                      SaveButton(onSave: ()async{
-                        int numpages=1;
-                        try{
-                          numpages = int.parse(_bookSizeController.text);
-                        }
-                        catch(e){
-                          return;
-                        }
-                        Book book = new Book(-1, _bookController.text, false, Colors.deepOrange.value, "assets/covers/default.jpg", 1, numpages);
-                        _bookController.clear();_bookSizeController.clear();
-                        Navigator.of(context).pop();
-                        ScaffoldMessenger.of(context).showSnackBar(SnackBar(
-                          content: Text("Getting cover page. Please wait..."),
-                        ));
-                        book = await Constants.getCoverPage(book);
-                        book = await VocabDatabase.instance.create(book);
-                        addBookToVocabs(book);
-                      }, altText: '')
-                    ],
+
+                  return CreateDialog(
+                    onAdd: (Book book){
+                      addBookToVocabs(book);
+                    },
                   );
                 },
               );

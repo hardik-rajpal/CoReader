@@ -99,7 +99,7 @@ class _ArchivePageState extends State<ArchivePage> {
                   backgroundColor: MaterialStateProperty.all(Color(vocab.book.color)),
                 ),
                 child: (vocab.book.cover!='assets/cover/default.jpg')?Image(
-                  image: Constants.getImageWidget(vocab.book),
+                  image: Constants.getImageWidget(vocab.book.cover),
                 ):Text(vocab.book.name),
               ),
             ),

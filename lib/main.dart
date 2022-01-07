@@ -14,6 +14,7 @@ import 'quote.dart';
 import 'package:http/http.dart';
 import 'dart:convert';
 class Constants{
+  static const String localBlankPage= 'assets/covers/default.jpg';
   static double ValueThres = 200;
   static String glossaryState = 'Glossary';
   static String notebookState = 'Notebook';
@@ -26,37 +27,38 @@ class Constants{
     r = color.red; g = color.green; b = color.blue;
     return 0.299*r + 0.587*b + 0.114*b;
   }
-  static Future<Book> getCoverPage(Book book)async{
+  static Future<String> getCoverPage(String inTitle)async{
     var client = Client();
-    String title = book.name.split(' ').join('+');
+    String title = inTitle.split(' ').join('+');
     // List<String> chars = title.characters.toList();
     if(title.toUpperCase().compareTo(title)==0){
 
       title = title.characters.toList().join('+');
     }
+    String coverpage;
     final String url = 'https://book-cover-api.herokuapp.com/getBookCover?bookTitle=${title}';
     try{
       var response = await client.get(Uri.parse(url));
       Map<String, dynamic> data = jsonDecode(response.body);
       if (data['status'] == 'success') {
-        book.cover = data['bookCoverUrl'];
+        coverpage = data['bookCoverUrl'];
       } else {
-        book.cover = 'assets/covers/default.jpg';
+        coverpage = Constants.localBlankPage;
       }
     }
     catch(e){
-      book.cover = 'assets/covers/default.jpg';
+      coverpage = Constants.localBlankPage;
     }
-    return book;
+    return coverpage;
   }
-  static dynamic getImageWidget(Book book){
-    if(book.cover.startsWith('http')){
+  static dynamic getImageWidget(String coverpage){
+    if(coverpage.startsWith('http')){
       return CachedNetworkImageProvider(
-        book.cover,
+        coverpage,
       );
     }
     else{
-      return AssetImage(book.cover);
+      return AssetImage(coverpage);
     }
   }
   static Future<bool> isConnectedToWeb()async{
@@ -230,7 +232,7 @@ class _MainContentState extends State<MainContent> {
           child: Container(
               decoration: BoxDecoration(
                 image: DecorationImage(
-                    image:  Constants.getImageWidget(activeVocab.book),
+                    image:  Constants.getImageWidget(activeVocab.book.cover),
                     fit: BoxFit.fill,
                     opacity: 0.3
                 ),
