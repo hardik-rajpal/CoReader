@@ -1,5 +1,6 @@
 import 'dart:math';
 
+import 'package:CoReader/MinColorPicker.dart';
 import 'package:CoReader/Vocabs.dart';
 import 'package:CoReader/quote.dart';
 import 'package:flutter/cupertino.dart';
@@ -113,11 +114,12 @@ class _DashboardState extends State<Dashboard> with TickerProviderStateMixin {
                                       controller: _bookSizeController,
                                       keyboardType: TextInputType.number,
                                     ),
-                                    ColorPicker(
-                                      paletteType: PaletteType.hueWheel,
-                                      enableAlpha: false,
-                                      pickerColor: Color(s.book.color),
-                                      onColorChanged: (Color color){
+                                    MinColorPicker(
+                                      // paletteType: PaletteType.hueWheel,
+                                      // enableAlpha: false,
+                                      showValueBar: false,
+                                      selectedColor: Color(s.book.color),
+                                      onSelect: (Color color){
                                         setState(() {
                                           s.book.color = color.value;
                                         });

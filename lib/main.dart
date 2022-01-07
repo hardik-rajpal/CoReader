@@ -1,5 +1,6 @@
 import 'dart:io';
 import 'dart:math';
+import 'package:CoReader/MinColorPicker.dart';
 import 'package:wakelock/wakelock.dart';
 import 'package:CoReader/About.dart';
 import 'package:CoReader/Archive.dart';
@@ -19,6 +20,7 @@ class Constants{
   static const int dashboard = 0;
   static const int archive = 1;
   static const int about = 2;
+  static const int backup = 3;
   static double getVofHSV(Color color){
     int r, g, b;
     r = color.red; g = color.green; b = color.blue;
@@ -616,6 +618,9 @@ class _HomePageState extends State<HomePage> with TickerProviderStateMixin{
       case (Constants.about):
         page = AboutPage();
         break;
+      case (Constants.backup):
+        page = MinColorPicker(choices: [], onSelect: (){});
+        break;
       default:
         page = Dashboard(vocabs: vocabs,);
         break;
@@ -635,17 +640,25 @@ class _HomePageState extends State<HomePage> with TickerProviderStateMixin{
             ),
             onPressed: ()async{
               if(await Constants.isConnectedToWeb()){
-                Constants.Toast('Downloading definitions for the glossary.', context);
+                int undefinedWords = 0;
                 List<Word> allwords = await VocabDatabase.instance.getAllWords(-1);
-                allwords.forEach((element)async{
-                  if(element.def.length==0){
-                    element.def = await Constants.getDefinitionTextFromWeb(element);
-                    VocabDatabase.instance.updateWord(element);
+                undefinedWords = allwords.where((element) => element.def.length==0).length;
+                if(undefinedWords==0){
+                  Constants.Toast('All definitions already downloaded', context);
+                  return;
+                }
+                Constants.Toast('Downloading definitions for the glossary.', context);
+                for(int i=0;i<allwords.length;i++){
+                  if(allwords[i].def.length==0){
+                    allwords[i].def = await Constants.getDefinitionTextFromWeb(allwords[i]);
+                    VocabDatabase.instance.updateWord(allwords[i]);
+                    undefinedWords-=1;
                   }
-                  if(allwords.where((element) => element.def.length==0).length==0){
+                  if(undefinedWords==0){
                     Constants.Toast('All definitions downloaded!', context);
+                    break;
                   }
-                });
+                }
                 // while(){
                 //   //show notif?
                 // }
@@ -753,7 +766,15 @@ class _HomePageState extends State<HomePage> with TickerProviderStateMixin{
                             currentSection = Constants.about;
                           });
                         }
-                    )
+                    ),
+                    menuItem(
+                        iconData: Icons.restaurant,
+                        text: 'ColorPicker',
+                        onTap: (){
+                          setState(() {
+                            currentSection = Constants.backup;
+                          });
+                        })
                   ],
                 )
               )
