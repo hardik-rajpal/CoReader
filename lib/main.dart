@@ -122,8 +122,11 @@ class MyHttpOverrides extends HttpOverrides{
       ..badCertificateCallback = (X509Certificate cert, String host, int port)=> true;
   }
 }
+//TODO: Favourite words.
 // TODO: enable number+abbreviated (21LF21C)
-//TODO: show background download of defs in notif. bar.
+//TODO:add reading stats: offer number of pages read, glossary changes,
+//trend. Will have to Make new db table.
+//TODO:don't accept duplicate words, offer settings?
 //TODO: add export as json and import as json.
 class DeleteButton extends StatelessWidget {
   final Function onDelete;
@@ -770,8 +773,8 @@ class _HomePageState extends State<HomePage> with TickerProviderStateMixin{
                         }
                     ),
                     menuItem(
-                        iconData: Icons.restaurant,
-                        text: 'ColorPicker',
+                        iconData: Icons.star_border,
+                        text: 'Favourites',
                         onTap: (){
                           setState(() {
                             currentSection = Constants.backup;
